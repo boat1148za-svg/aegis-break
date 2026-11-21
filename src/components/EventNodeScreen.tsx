@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AmbientBackdrop } from './AmbientBackdrop';
 import {
   combatConfig,
   getEffectivePlayerMaxSp,
@@ -92,10 +93,11 @@ export function EventNodeScreen({
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100"
+      className="relative flex min-h-screen items-center justify-center bg-[#080c14] p-6 text-slate-100"
       data-testid="event-node-screen"
     >
-      <div className="w-full max-w-2xl rounded-2xl border border-emerald-500/40 bg-slate-900 p-8 shadow-2xl">
+      <AmbientBackdrop />
+      <div className="hud-panel relative z-10 w-full max-w-2xl p-8 shadow-2xl backdrop-blur-md">
         {/* Header */}
         <div className="flex items-start gap-3">
           {narrativeEvent && (

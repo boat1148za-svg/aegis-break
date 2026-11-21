@@ -12,6 +12,7 @@ import { SpiritMenuPanel } from './SpiritMenuPanel';
 import { StatusHeader } from './StatusHeader';
 import { UnitInfoPanel } from './UnitInfoPanel';
 import { WeaponMenuPanel } from './WeaponMenuPanel';
+import { getBattleBackgroundUrl } from '../logic/assetMap';
 import { audioEngine } from '../logic/audioEngine';
 import {
   buildBattleForecast,
@@ -122,6 +123,8 @@ export function BattleScreen({
   const [activeCutIn, setActiveCutIn] = useState<CutInEvent | null>(null);
   const [momentumBanner, setMomentumBanner] = useState<string | null>(null);
   const [screenShake, setScreenShake] = useState(false);
+  const [heavyScreenShake, setHeavyScreenShake] = useState(false);
+  const [ultimateFlash, setUltimateFlash] = useState(false);
   const [unitAnimations, setUnitAnimations] = useState<
     Record<string, UnitAnimationType>
   >({});
@@ -133,6 +136,10 @@ export function BattleScreen({
   const timersRef = useRef<number[]>([]);
   const floatSeqRef = useRef(0);
   const zoomTokenRef = useRef(0);
+  const pendingUltimateImpactRef = useRef<(() => void) | null>(null);
+  const ultimateCutInTimerRef = useRef<number | null>(null);
+
+  const battleBgUrl = getBattleBackgroundUrl(node);
 
   const scaledDelay = (ms: number) =>
     Math.max(40, Math.round(ms / speedMultiplier));
@@ -148,6 +155,11 @@ export function BattleScreen({
       window.clearTimeout(id);
     }
     timersRef.current = [];
+    if (ultimateCutInTimerRef.current !== null) {
+      window.clearTimeout(ultimateCutInTimerRef.current);
+      ultimateCutInTimerRef.current = null;
+    }
+    pendingUltimateImpactRef.current = null;
   };
 
   useEffect(() => {
@@ -157,15 +169,31 @@ export function BattleScreen({
   // Safety Watchdog: prevents isBusy / cameraZoom / hitstop from ever locking during complex combos
   useEffect(() => {
     if (!isBusy || pendingCounter || pendingForecast) return;
-    const watchdogMs = Math.round(4800 / speedMultiplier);
+    const watchdogMs = Math.round(6800 / speedMultiplier);
     const watchdogId = window.setTimeout(() => {
+      pendingUltimateImpactRef.current = null;
       setIsBusy(false);
       setCameraZoom(null);
       setHitstopUnitId(null);
       setActiveCutIn(null);
+      setHeavyScreenShake(false);
+      setUltimateFlash(false);
     }, watchdogMs);
     return () => window.clearTimeout(watchdogId);
   }, [isBusy, pendingCounter, pendingForecast, speedMultiplier]);
+
+  const handleSkipCutIn = () => {
+    if (ultimateCutInTimerRef.current !== null) {
+      window.clearTimeout(ultimateCutInTimerRef.current);
+      ultimateCutInTimerRef.current = null;
+    }
+    setActiveCutIn(null);
+    const pendingImpact = pendingUltimateImpactRef.current;
+    if (pendingImpact) {
+      pendingUltimateImpactRef.current = null;
+      pendingImpact();
+    }
+  };
 
   const appendLog = (message: string) => {
     setLogs((prev) => [message, ...prev].slice(0, 40));
@@ -229,18 +257,23 @@ export function BattleScreen({
   const spawnCombatVfx = (
     attacker: BattleUnit,
     defender: BattleUnit,
-    weapon: WeaponData
+    weapon: WeaponData,
+    isUltimate: boolean = false
   ) => {
-    audioEngine.playSfx(weapon.type === 'ranged' ? 'beam' : 'slash');
+    if (isUltimate) {
+      audioEngine.playSfx('ultimate_impact');
+    } else {
+      audioEngine.playSfx(weapon.type === 'ranged' ? 'beam' : 'slash');
+    }
     const id = `vfx-${++floatSeqRef.current}`;
     const color =
       attacker.faction === 'enemy'
-        ? '#f43f5e'
-        : weapon.willRequired >= 120 || attacker.activeSpirits.valor
-          ? '#fbbf24'
+        ? '#ff2a55'
+        : isUltimate || weapon.willRequired >= 120 || attacker.activeSpirits.valor
+          ? '#ffb800'
           : weapon.armorBreakAmount
             ? '#10b981'
-            : '#22d3ee';
+            : '#00f0ff';
 
     setCombatVfx((prev) => [
       ...prev,
@@ -250,21 +283,26 @@ export function BattleScreen({
         from: { ...attacker.position },
         to: { ...defender.position },
         color,
+        isUltimate,
       },
     ]);
-    if (weapon.type === 'ranged') {
+    if (isUltimate) {
+      spawnCanvasBurst('ultimate_beam', defender.position, color, attacker.position);
+      spawnCanvasBurst('ultimate_explosion', defender.position, '#ffb800');
+    } else if (weapon.type === 'ranged') {
       spawnCanvasBurst('beam', defender.position, color, attacker.position);
     }
     scheduleTimer(() => {
       setCombatVfx((prev) => prev.filter((item) => item.id !== id));
-    }, 620);
+    }, isUltimate ? 820 : 620);
   };
 
   const triggerFinisherCutIn = (
     attacker: BattleUnit,
     weapon: WeaponData,
     forceShow: boolean = false,
-    bannerLabel?: string
+    bannerLabel?: string,
+    isUltimate: boolean = false
   ) => {
     if (!cutInEnabled) return;
     if (!forceShow && weapon.willRequired < 120 && !attacker.activeSpirits.valor) {
@@ -280,10 +318,13 @@ export function BattleScreen({
       weaponName: weapon.name,
       faction: attacker.faction,
       bannerLabel,
+      isUltimate,
     });
-    scheduleTimer(() => {
-      setActiveCutIn((prev) => (prev?.id === id ? null : prev));
-    }, 1150);
+    if (!isUltimate) {
+      scheduleTimer(() => {
+        setActiveCutIn((prev) => (prev?.id === id ? null : prev));
+      }, 1150);
+    }
   };
 
   const getFacingBetween = (
@@ -1366,11 +1407,7 @@ export function BattleScreen({
         stage1Map.tiles[defender.position.row][defender.position.col]
       ) ?? getTerrainById('normal')!;
 
-    // 1. Primary Player Attack with Dynamic 1.25x Combat Zoom & 80ms Hitstop!
-    triggerCombatZoom(attacker.position, defender.position, 1150);
-    triggerFinisherCutIn(attacker, attackerWeapon);
-    triggerUnitAnimation(attacker.instanceId, 'attack');
-    spawnCombatVfx(attacker, defender, attackerWeapon);
+    const isUltimate = attackerWeapon.willRequired >= 120;
 
     const attackResult = resolveAttackStrike(
       attacker,
@@ -1404,9 +1441,17 @@ export function BattleScreen({
         audioEngine.playSfx(attackResult.destroyed ? 'explosion' : 'hit');
         triggerUnitAnimation(defender.instanceId, 'hit');
         spawnCanvasBurst(
-          attackResult.destroyed ? 'explosion' : 'impact',
+          isUltimate
+            ? 'ultimate_explosion'
+            : attackResult.destroyed
+              ? 'explosion'
+              : 'impact',
           defender.position,
-          attackResult.destroyed ? '#f97316' : '#38bdf8'
+          isUltimate
+            ? '#ffb800'
+            : attackResult.destroyed
+              ? '#f97316'
+              : '#00f0ff'
         );
         const critPrefix = attackResult.isCrit ? 'CRIT! ' : '';
         spawnFloatingText(
@@ -1651,12 +1696,55 @@ export function BattleScreen({
       }
     };
 
-    // 80ms Hitstop freeze + bright white flash before damage & knockback resolve!
-    if (attackResult.hit) {
-      setHitstopUnitId(defender.instanceId);
-      scheduleTimer(executePrimaryImpact, 80);
+    const startImpactSequence = () => {
+      // Dynamic 1.25x Combat Zoom + Colossal Beam/Explosion + Heavy Shake & Flash for Ultimates
+      triggerCombatZoom(
+        attacker.position,
+        defender.position,
+        isUltimate ? 1350 : 1150
+      );
+      triggerUnitAnimation(attacker.instanceId, 'attack');
+      spawnCombatVfx(attacker, defender, attackerWeapon, isUltimate);
+
+      if (isUltimate) {
+        setUltimateFlash(true);
+        setHeavyScreenShake(true);
+        scheduleTimer(() => setUltimateFlash(false), 480);
+        scheduleTimer(() => setHeavyScreenShake(false), 680);
+      }
+
+      // 80ms Hitstop freeze + bright white flash before damage & knockback resolve!
+      if (attackResult.hit) {
+        setHitstopUnitId(defender.instanceId);
+        scheduleTimer(executePrimaryImpact, isUltimate ? 110 : 80);
+      } else {
+        executePrimaryImpact();
+      }
+    };
+
+    if (isUltimate && cutInEnabled) {
+      // Phase A: Full-Screen Cinematic Ultimate Cut-in (1.5s, click anywhere to skip directly into impact)
+      audioEngine.playSfx('ultimate_charge');
+      triggerFinisherCutIn(
+        attacker,
+        attackerWeapon,
+        true,
+        '⚡ ULTIMATE FINISHER',
+        true
+      );
+      pendingUltimateImpactRef.current = startImpactSequence;
+      ultimateCutInTimerRef.current = window.setTimeout(() => {
+        ultimateCutInTimerRef.current = null;
+        setActiveCutIn(null);
+        const fn = pendingUltimateImpactRef.current;
+        pendingUltimateImpactRef.current = null;
+        if (fn) fn();
+      }, scaledDelay(1500));
     } else {
-      executePrimaryImpact();
+      if (!isUltimate) {
+        triggerFinisherCutIn(attacker, attackerWeapon);
+      }
+      startImpactSequence();
     }
   };
 
@@ -1816,6 +1904,8 @@ export function BattleScreen({
     setCameraZoom(null);
     setHitstopUnitId(null);
     setActiveCutIn(null);
+    setHeavyScreenShake(false);
+    setUltimateFlash(false);
     setMomentumBanner(null);
     setSelectedWeaponId(null);
     setDangerZones([]);
@@ -1852,12 +1942,24 @@ export function BattleScreen({
 
   return (
     <div
-      className={`relative min-h-screen bg-slate-950 text-slate-100 ${
-        screenShake ? 'animate-screen-shake' : ''
+      className={`relative min-h-screen bg-[#080c14] text-slate-100 ${
+        heavyScreenShake
+          ? 'animate-heavy-screen-shake'
+          : screenShake
+            ? 'animate-screen-shake'
+            : ''
       }`}
       data-testid="battle-screen"
+      data-heavy-shake={heavyScreenShake ? 'true' : 'false'}
     >
-      <AmbientBackdrop />
+      <AmbientBackdrop backgroundImageUrl={battleBgUrl} />
+      {ultimateFlash && (
+        <div
+          aria-hidden="true"
+          data-testid="ultimate-impact-flash"
+          className="animate-ultimate-flash pointer-events-none fixed inset-0 z-50 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.96)_0%,rgba(255,214,102,0.88)_45%,rgba(0,240,255,0.65)_100%)]"
+        />
+      )}
       <div className="relative z-10">
       {momentumBanner && (
         <div
@@ -2001,10 +2103,7 @@ export function BattleScreen({
         />
       )}
 
-      <FinisherCutIn
-        cutIn={activeCutIn}
-        onSkip={() => setActiveCutIn(null)}
-      />
+      <FinisherCutIn cutIn={activeCutIn} onSkip={handleSkipCutIn} />
       </div>
     </div>
   );

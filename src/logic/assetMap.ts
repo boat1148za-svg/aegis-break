@@ -1,3 +1,5 @@
+import type { RunNodeData } from './types';
+
 const MECHA_SPRITE_MAP: Record<string, string> = {
   giga_rex: '/assets/mech_giga_rex.png',
   aegis_01: '/assets/mech_giga_rex.png',
@@ -44,4 +46,22 @@ export function getMechaCutInUrl(mechaId: string): string | null {
 
 export function getPilotPortraitUrl(pilotId: string): string | null {
   return PILOT_PORTRAIT_MAP[pilotId] ?? null;
+}
+
+export function getBattleBackgroundUrl(node: RunNodeData): string {
+  if (node.type === 'boss_battle' || node.nodeNumber === 7) {
+    return '/assets/bg_battle_boss.png';
+  }
+  if (node.nodeNumber === 1 || node.nodeNumber === 2) {
+    return '/assets/bg_battle_city.png';
+  }
+  if (
+    node.nodeNumber === 4 ||
+    node.nodeNumber === 6 ||
+    node.type === 'elite_battle' ||
+    node.type === 'hard_battle'
+  ) {
+    return '/assets/bg_battle_space.png';
+  }
+  return '/assets/bg_battle_city.png';
 }

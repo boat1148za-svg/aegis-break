@@ -40,12 +40,12 @@ export function BattleForecastModal({
     >
       <div className="hud-panel-amber radar-bg max-h-[90vh] w-full max-w-3xl overflow-y-auto bg-slate-900/95 shadow-2xl">
         {/* Radar Target-Lock Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/30 bg-slate-950/90 px-6 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#00f0ff]/30 bg-[#080c14]/90 px-6 py-4">
           <div>
-            <p className="text-[11px] font-extrabold tracking-[0.28em] text-cyan-400 uppercase">
+            <p className="font-orbitron text-[10px] font-extrabold tracking-[0.26em] text-[#00f0ff] uppercase">
               🎯 TARGET LOCK-ON · RADAR FORECAST
             </p>
-            <h2 className="text-lg font-black tracking-tight text-slate-50">
+            <h2 className="font-orbitron text-lg font-black tracking-wide text-slate-50">
               คาดการณ์การปะทะ (BATTLE FORECAST)
             </h2>
           </div>
@@ -55,16 +55,16 @@ export function BattleForecastModal({
             <PilotPortrait
               pilotId={attacker.pilot.id}
               faction={attacker.faction}
-              className="h-12 w-12 ring-2 ring-cyan-400/70"
+              className="h-12 w-12 ring-2 ring-[#00f0ff]/80"
             />
-            <span className="rounded border border-amber-400/60 bg-amber-500/20 px-2.5 py-1 text-xs font-black tracking-widest text-amber-300">
+            <span className="font-orbitron rounded border border-[#ffb800]/70 bg-[#ffb800]/20 px-2.5 py-1 text-xs font-black tracking-widest text-[#ffb800]">
               VS
             </span>
             <span className="inline-block" style={{ transform: 'scaleX(-1)' }}>
               <PilotPortrait
                 pilotId={defender.pilot.id}
                 faction={defender.faction}
-                className="h-12 w-12 ring-2 ring-rose-400/70"
+                className="h-12 w-12 ring-2 ring-[#ff2a55]/80"
               />
             </span>
           </div>
@@ -170,12 +170,12 @@ export function BattleForecastModal({
                     โอกาสยิงโดน (HitRate)
                   </div>
                   <div
-                    className="text-lg font-bold text-cyan-300"
+                    className="font-sci-num text-lg font-bold text-[#00f0ff]"
                     data-testid="forecast-attacker-hit"
                   >
                     {attackerPreview.hitRate}%
                   </div>
-                  <div className="text-[10px] text-amber-300/90">
+                  <div className="font-sci-num text-[10px] text-[#ffb800]">
                     CRIT {attackerPreview.critRate}%
                   </div>
                 </div>
@@ -184,7 +184,7 @@ export function BattleForecastModal({
                     ดาเมจคาดการณ์
                   </div>
                   <div
-                    className="text-lg font-bold text-amber-300"
+                    className="font-sci-num text-lg font-bold text-[#ffb800]"
                     data-testid="forecast-attacker-dmg"
                   >
                     {attackerPreview.finalDamage.toLocaleString()}
@@ -316,7 +316,7 @@ export function BattleForecastModal({
                         โอกาสยิงโดน
                       </div>
                       <div
-                        className="text-lg font-bold text-rose-300"
+                        className="font-sci-num text-lg font-bold text-[#ff2a55]"
                         data-testid="forecast-defender-hit"
                       >
                         {defenderPreview.hitRate}%
@@ -327,7 +327,7 @@ export function BattleForecastModal({
                         ดาเมจสวนกลับ
                       </div>
                       <div
-                        className="text-lg font-bold text-rose-300"
+                        className="font-sci-num text-lg font-bold text-[#ff2a55]"
                         data-testid="forecast-defender-dmg"
                       >
                         {defenderPreview.finalDamage.toLocaleString()}

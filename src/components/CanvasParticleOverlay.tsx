@@ -3,7 +3,12 @@ import type { GridPosition } from '../logic/types';
 
 export interface CanvasParticleBurst {
   id: string;
-  kind: 'beam' | 'impact' | 'explosion';
+  kind:
+    | 'beam'
+    | 'impact'
+    | 'explosion'
+    | 'ultimate_beam'
+    | 'ultimate_explosion';
   from?: GridPosition;
   to: GridPosition;
   color: string;
@@ -65,8 +70,12 @@ export function CanvasParticleOverlay({
 
       const target = toPx(burst.to);
 
-      if (burst.kind === 'beam' && burst.from) {
+      if (
+        (burst.kind === 'beam' || burst.kind === 'ultimate_beam') &&
+        burst.from
+      ) {
         const origin = toPx(burst.from);
+        const isUlt = burst.kind === 'ultimate_beam';
         beamsRef.current.push({
           x1: origin.x,
           y1: origin.y,
@@ -74,73 +83,103 @@ export function CanvasParticleOverlay({
           y2: target.y,
           color: burst.color,
           alpha: 1,
-          width: 8,
+          width: isUlt ? 24 : 8,
         });
 
         // Sparks flying along beam path
-        for (let i = 0; i < 14; i++) {
+        const count = isUlt ? 38 : 14;
+        for (let i = 0; i < count; i++) {
           const t = Math.random();
           particlesRef.current.push({
             x: origin.x + (target.x - origin.x) * t,
             y: origin.y + (target.y - origin.y) * t,
-            vx: (Math.random() - 0.5) * 3.2,
-            vy: (Math.random() - 0.5) * 3.2,
-            radius: 1.5 + Math.random() * 2.5,
+            vx: (Math.random() - 0.5) * (isUlt ? 6.2 : 3.2),
+            vy: (Math.random() - 0.5) * (isUlt ? 6.2 : 3.2),
+            radius: (isUlt ? 2.4 : 1.5) + Math.random() * 3.0,
             alpha: 1,
-            decay: 0.045,
-            color: i % 2 === 0 ? '#ffffff' : burst.color,
+            decay: isUlt ? 0.03 : 0.045,
+            color: i % 3 === 0 ? '#ffffff' : i % 3 === 1 ? '#00f0ff' : burst.color,
             kind: 'spark',
           });
         }
       }
 
-      if (burst.kind === 'impact' || burst.kind === 'explosion') {
-        const sparkCount = burst.kind === 'explosion' ? 32 : 18;
+      if (
+        burst.kind === 'impact' ||
+        burst.kind === 'explosion' ||
+        burst.kind === 'ultimate_explosion'
+      ) {
+        const isUltExp = burst.kind === 'ultimate_explosion';
+        const sparkCount = isUltExp
+          ? 64
+          : burst.kind === 'explosion'
+            ? 32
+            : 18;
         for (let i = 0; i < sparkCount; i++) {
           const angle = Math.random() * Math.PI * 2;
           const speed =
-            (burst.kind === 'explosion' ? 2.5 : 1.8) + Math.random() * 4.2;
+            (isUltExp ? 3.8 : burst.kind === 'explosion' ? 2.5 : 1.8) +
+            Math.random() * (isUltExp ? 6.8 : 4.2);
           particlesRef.current.push({
             x: target.x,
             y: target.y,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
-            radius: 1.8 + Math.random() * 2.8,
+            radius: (isUltExp ? 2.4 : 1.8) + Math.random() * 3.2,
             alpha: 1,
-            decay: 0.032 + Math.random() * 0.02,
-            color: i % 3 === 0 ? '#fef08a' : burst.color,
+            decay: isUltExp ? 0.022 + Math.random() * 0.015 : 0.032 + Math.random() * 0.02,
+            color:
+              i % 4 === 0
+                ? '#ffffff'
+                : i % 3 === 0
+                  ? '#ffb800'
+                  : burst.color,
             kind: 'spark',
           });
         }
 
-        // Expanding shockwave ring
-        particlesRef.current.push({
-          x: target.x,
-          y: target.y,
-          vx: 0,
-          vy: 0,
-          radius: 8,
-          alpha: 0.95,
-          decay: 0.055,
-          color: burst.kind === 'explosion' ? '#fb923c' : burst.color,
-          kind: 'ring',
-        });
+        // Expanding shockwave ring(s)
+        const ringCount = isUltExp ? 3 : 1;
+        for (let r = 0; r < ringCount; r++) {
+          particlesRef.current.push({
+            x: target.x,
+            y: target.y,
+            vx: 0,
+            vy: 0,
+            radius: 10 + r * 14,
+            alpha: 0.98,
+            decay: isUltExp ? 0.036 + r * 0.008 : 0.055,
+            color:
+              r === 0
+                ? '#ffffff'
+                : r === 1
+                  ? '#ffb800'
+                  : '#00f0ff',
+            kind: 'ring',
+          });
+        }
       }
 
-      if (burst.kind === 'explosion') {
-        // Rising smoke puffs when a mecha is destroyed
-        for (let i = 0; i < 16; i++) {
+      if (burst.kind === 'explosion' || burst.kind === 'ultimate_explosion') {
+        const isUltExp = burst.kind === 'ultimate_explosion';
+        // Rising smoke / fiery plasma clouds
+        for (let i = 0; i < (isUltExp ? 26 : 16); i++) {
           const angle = Math.random() * Math.PI * 2;
-          const speed = 0.6 + Math.random() * 1.8;
+          const speed = (isUltExp ? 1.2 : 0.6) + Math.random() * (isUltExp ? 3.2 : 1.8);
           particlesRef.current.push({
-            x: target.x + (Math.random() - 0.5) * 14,
-            y: target.y + (Math.random() - 0.5) * 14,
+            x: target.x + (Math.random() - 0.5) * (isUltExp ? 26 : 14),
+            y: target.y + (Math.random() - 0.5) * (isUltExp ? 26 : 14),
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed - 0.7,
-            radius: 7 + Math.random() * 10,
-            alpha: 0.72,
-            decay: 0.018 + Math.random() * 0.01,
-            color: i % 3 === 0 ? '#f97316' : '#475569',
+            radius: (isUltExp ? 10 : 7) + Math.random() * (isUltExp ? 14 : 10),
+            alpha: 0.8,
+            decay: 0.016 + Math.random() * 0.01,
+            color:
+              i % 3 === 0
+                ? '#ffb800'
+                : i % 3 === 1
+                  ? '#ff2a55'
+                  : '#475569',
             kind: 'smoke',
           });
         }

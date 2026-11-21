@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { BattleScreen } from './components/BattleScreen';
 import {
   EventNodeScreen,
@@ -6,6 +6,7 @@ import {
 } from './components/EventNodeScreen';
 import { HangarScreen } from './components/HangarScreen';
 import { NodeMapScreen } from './components/NodeMapScreen';
+import { PostProcessOverlay } from './components/PostProcessOverlay';
 import { RunEndScreen } from './components/RunEndScreen';
 import { TitleScreen } from './components/TitleScreen';
 import { UpgradeDraftModal } from './components/UpgradeDraftModal';
@@ -417,8 +418,10 @@ export function App() {
     finalizeNodeAndReturnToMap(pendingDraft.node, swappedPlayer);
   };
 
+  let content: ReactNode;
+
   if (screen === 'TITLE') {
-    return (
+    content = (
       <TitleScreen
         savedRun={savedRun}
         bgmEnabled={audioPrefs.bgmEnabled}
@@ -433,19 +436,15 @@ export function App() {
         onContinueRun={handleContinueSavedRun}
       />
     );
-  }
-
-  if (screen === 'RUN_END' && runSummary) {
-    return (
+  } else if (screen === 'RUN_END' && runSummary) {
+    content = (
       <RunEndScreen
         summary={runSummary}
         onReturnToHangar={handleReturnToHangar}
       />
     );
-  }
-
-  if (screen === 'HANGAR' || !runPlayer) {
-    return (
+  } else if (screen === 'HANGAR' || !runPlayer) {
+    content = (
       <HangarScreen
         meta={meta}
         onStartRun={handleStartRun}
@@ -457,10 +456,8 @@ export function App() {
         }}
       />
     );
-  }
-
-  if (screen === 'EVENT' && activeNode) {
-    return (
+  } else if (screen === 'EVENT' && activeNode) {
+    content = (
       <EventNodeScreen
         key={activeNode.id}
         node={activeNode}
@@ -472,11 +469,9 @@ export function App() {
         onTriggerAmbushBattle={handleTriggerAmbushBattle}
       />
     );
-  }
-
-  if (screen === 'BATTLE' && (activeAmbush || activeNode)) {
+  } else if (screen === 'BATTLE' && (activeAmbush || activeNode)) {
     const battleNode = activeAmbush ? activeAmbush.ambushNode : activeNode!;
-    return (
+    content = (
       <>
         <BattleScreen
           key={battleNode.id}
@@ -511,19 +506,26 @@ export function App() {
         )}
       </>
     );
+  } else {
+    content = (
+      <NodeMapScreen
+        nodes={runNodes}
+        currentNodeIndex={currentNodeIndex}
+        clearedNodeIds={clearedNodeIds}
+        runPlayer={runPlayer}
+        meta={meta}
+        runVictory={runVictory}
+        onEnterNode={handleEnterNode}
+        onReturnToHangar={handleReturnToHangar}
+      />
+    );
   }
 
   return (
-    <NodeMapScreen
-      nodes={runNodes}
-      currentNodeIndex={currentNodeIndex}
-      clearedNodeIds={clearedNodeIds}
-      runPlayer={runPlayer}
-      meta={meta}
-      runVictory={runVictory}
-      onEnterNode={handleEnterNode}
-      onReturnToHangar={handleReturnToHangar}
-    />
+    <>
+      {content}
+      <PostProcessOverlay />
+    </>
   );
 }
 

@@ -33,14 +33,14 @@ export function TitleScreen({
 
   return (
     <div
-      className="relative flex min-h-screen flex-col items-center justify-between overflow-hidden bg-slate-950 px-6 py-8 text-slate-100"
+      className="relative flex min-h-screen flex-col items-center justify-between overflow-hidden bg-[#080c14] px-6 py-8 text-slate-100"
       data-testid="title-screen"
     >
       <AmbientBackdrop />
 
       {/* Top Audio Controls Bar */}
       <div className="relative z-10 flex w-full max-w-5xl items-center justify-between">
-        <div className="text-[11px] font-bold tracking-[0.28em] text-cyan-400/90 uppercase">
+        <div className="font-orbitron text-[11px] font-bold tracking-[0.26em] text-[#00f0ff]/90 uppercase">
           SYS.ONLINE // TACTICAL MECHA ROGUELITE
         </div>
         <div className="flex items-center gap-2">
@@ -48,10 +48,10 @@ export function TitleScreen({
             type="button"
             data-testid="title-bgm-toggle"
             onClick={onToggleBgm}
-            className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+            className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-bold backdrop-blur-md transition ${
               bgmEnabled
-                ? 'border-cyan-400/60 bg-cyan-950/50 text-cyan-200 hover:bg-cyan-900/60'
-                : 'border-slate-700 bg-slate-900/70 text-slate-400 hover:bg-slate-800'
+                ? 'border-[#00f0ff]/60 bg-[#00f0ff]/15 text-[#00f0ff] hover:bg-[#00f0ff]/25'
+                : 'border-slate-700 bg-[#0b1220]/80 text-slate-400 hover:bg-slate-800'
             }`}
           >
             {bgmEnabled ? '🎵 BGM: ON' : '🔇 BGM: OFF'}
@@ -60,10 +60,10 @@ export function TitleScreen({
             type="button"
             data-testid="title-sfx-toggle"
             onClick={onToggleSfx}
-            className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+            className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-bold backdrop-blur-md transition ${
               sfxEnabled
-                ? 'border-amber-400/60 bg-amber-950/50 text-amber-200 hover:bg-amber-900/60'
-                : 'border-slate-700 bg-slate-900/70 text-slate-400 hover:bg-slate-800'
+                ? 'border-[#ffb800]/60 bg-[#ffb800]/15 text-[#ffb800] hover:bg-[#ffb800]/25'
+                : 'border-slate-700 bg-[#0b1220]/80 text-slate-400 hover:bg-slate-800'
             }`}
           >
             {sfxEnabled ? '🔊 SFX: ON' : '🔈 SFX: OFF'}
@@ -74,11 +74,11 @@ export function TitleScreen({
       {/* Center Hero Section: Sci-Fi Logo + 3 Mecha Lineup */}
       <div className="relative z-10 my-auto flex w-full max-w-5xl flex-col items-center py-6 text-center">
         {/* Sci-Fi Logo */}
-        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/40 bg-cyan-950/40 px-4 py-1 text-[11px] font-bold tracking-[0.3em] text-cyan-300 uppercase">
+        <div className="font-orbitron inline-flex items-center gap-2 rounded-full border border-[#00f0ff]/45 bg-[#00f0ff]/10 px-4 py-1 text-[11px] font-bold tracking-[0.28em] text-[#00f0ff] uppercase backdrop-blur-md">
           PROJECT // SUPER ROBOT TACTICS
         </div>
         <h1
-          className="mt-3 bg-gradient-to-r from-cyan-300 via-white to-amber-300 bg-clip-text text-5xl font-black tracking-[0.12em] text-transparent drop-shadow-[0_0_24px_rgba(34,211,238,0.45)] sm:text-7xl"
+          className="font-orbitron mt-3 bg-gradient-to-r from-[#00f0ff] via-white to-[#ffb800] bg-clip-text text-5xl font-black tracking-[0.12em] text-transparent drop-shadow-[0_0_28px_rgba(0,240,255,0.5)] sm:text-7xl"
           data-testid="title-logo"
         >
           AEGIS-BREAK

@@ -50,12 +50,12 @@ export function WeaponMenuPanel({
 
   return (
     <div
-      className="hud-panel-rose bg-slate-900/90 p-4 backdrop-blur-md"
+      className="hud-panel-rose p-4 backdrop-blur-md"
       data-testid="weapon-menu"
     >
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-xs font-semibold tracking-wider text-rose-400 uppercase">
+          <h2 className="font-orbitron text-xs font-bold tracking-wider text-[#ff2a55] uppercase">
             เลือกอาวุธโจมตี (Weapons)
           </h2>
           <p className="text-[11px] text-slate-400">
@@ -114,9 +114,9 @@ export function WeaponMenuPanel({
                 </span>
               </div>
 
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-300">
+              <div className="font-sci-num mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-300">
                 <span>
-                  PWR <strong className="text-rose-300">{weapon.power}</strong>
+                  PWR <strong className="text-[#ff2a55]">{weapon.power}</strong>
                 </span>
                 <span>
                   RNG{' '}
@@ -125,7 +125,7 @@ export function WeaponMenuPanel({
                   </strong>
                 </span>
                 <span>
-                  EN <strong className="text-amber-300">{weapon.enCost}</strong>
+                  EN <strong className="text-[#ffb800]">{weapon.enCost}</strong>
                 </span>
                 <span>ACC +{weapon.accuracy}</span>
                 {ammoLeft !== null && (
@@ -134,8 +134,15 @@ export function WeaponMenuPanel({
                   </span>
                 )}
                 {weapon.willRequired > 100 && (
-                  <span className="text-violet-300">
-                    Will {weapon.willRequired}+
+                  <span
+                    className={
+                      weapon.willRequired >= 120
+                        ? 'rounded bg-[#ffb800]/20 px-1.5 font-extrabold text-[#ffb800]'
+                        : 'text-violet-300'
+                    }
+                  >
+                    {weapon.willRequired >= 120 ? '⚡ ULT ' : ''}Will{' '}
+                    {weapon.willRequired}+
                   </span>
                 )}
                 {weapon.armorBreakAmount && weapon.armorBreakAmount > 0 && (

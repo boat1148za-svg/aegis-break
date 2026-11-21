@@ -1,3 +1,4 @@
+import { AmbientBackdrop } from './AmbientBackdrop';
 import { getUnitDefById } from '../logic/dataLoader';
 import type { RunSummaryData } from '../logic/types';
 
@@ -15,15 +16,14 @@ export function RunEndScreen({
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100"
+      className="relative flex min-h-screen items-center justify-center bg-[#080c14] p-6 text-slate-100"
       data-testid="run-end-screen"
       data-outcome={summary.outcome}
     >
+      <AmbientBackdrop />
       <div
-        className={`w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl ${
-          isVictory
-            ? 'border-emerald-500/60 bg-slate-900'
-            : 'border-rose-500/60 bg-slate-900'
+        className={`relative z-10 w-full max-w-xl overflow-hidden shadow-2xl backdrop-blur-md ${
+          isVictory ? 'hud-panel' : 'hud-panel-rose'
         }`}
       >
         {/* Top Banner */}

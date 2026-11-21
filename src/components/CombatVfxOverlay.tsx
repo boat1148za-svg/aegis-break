@@ -6,6 +6,7 @@ export interface CombatVfxEvent {
   from: GridPosition;
   to: GridPosition;
   color: string;
+  isUltimate?: boolean;
 }
 
 interface CombatVfxOverlayProps {
@@ -36,6 +37,80 @@ export function CombatVfxOverlay({
         const y1 = toPercentY(fx.from.row);
         const x2 = toPercentX(fx.to.col);
         const y2 = toPercentY(fx.to.row);
+
+        // Colossal Ultimate Finisher Mega-Beam & Starburst Detonation
+        if (fx.isUltimate) {
+          return (
+            <g key={fx.id} data-testid="vfx-ultimate-beam">
+              {/* Massive Outer Plasma Aura Beam */}
+              <line
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke={fx.color}
+                strokeWidth="10.5"
+                strokeLinecap="round"
+                strokeOpacity="0.55"
+                className="animate-beam-fire"
+              />
+              {/* Intense Cyan-Gold Mid Beam */}
+              <line
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke="#00f0ff"
+                strokeWidth="5.4"
+                strokeLinecap="round"
+                strokeOpacity="0.85"
+                className="animate-beam-fire"
+              />
+              {/* Blinding White-Hot Core */}
+              <line
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke="#ffffff"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                className="animate-beam-fire"
+              />
+              {/* Giant Muzzle Flare */}
+              <circle
+                cx={x1}
+                cy={y1}
+                r="5.2"
+                fill="#ffffff"
+                stroke={fx.color}
+                strokeWidth="1.8"
+                className="animate-impact-burst"
+              />
+              {/* Massive Target Supernova Explosion Rings */}
+              <circle
+                cx={x2}
+                cy={y2}
+                r="11.5"
+                fill={fx.color}
+                fillOpacity="0.38"
+                stroke="#ffb800"
+                strokeWidth="1.6"
+                className="animate-impact-burst"
+              />
+              <circle
+                cx={x2}
+                cy={y2}
+                r="7.2"
+                fill="#ffffff"
+                fillOpacity="0.82"
+                stroke="#00f0ff"
+                strokeWidth="1.2"
+                className="animate-impact-burst"
+              />
+            </g>
+          );
+        }
 
         if (fx.weaponType === 'ranged') {
           return (

@@ -48,28 +48,107 @@ const COL_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 function getTerrainStyle(terrainId: TerrainId): string {
   switch (terrainId) {
     case 'repair_zone':
-      return 'tile-25d bg-emerald-950/80 border-emerald-500/55 hover:border-emerald-300/80';
+      return 'tile-25d bg-emerald-950/70 border-emerald-400/55 hover:border-emerald-300/90';
     case 'obstacle':
-      return 'tile-obstacle-25d border-amber-500/35';
+      return 'tile-obstacle-25d border-[#ffb800]/45';
     case 'normal':
     default:
-      return 'tile-25d bg-slate-900/85 border-slate-700/70 hover:border-cyan-500/60';
+      return 'tile-25d bg-[#0b1324]/78 border-[#00f0ff]/22 hover:border-[#00f0ff]/75';
   }
 }
 
 function getFloatingTextStyle(variant: FloatingTextEvent['variant']): string {
   switch (variant) {
     case 'damage':
-      return 'bg-rose-600 text-white border-rose-300';
+      return 'bg-[#ff2a55] text-white border-rose-200 shadow-[#ff2a55]/50';
     case 'destroyed':
-      return 'bg-amber-500 text-slate-950 border-amber-200';
+      return 'bg-[#ffb800] text-[#080c14] border-amber-100 shadow-[#ffb800]/60';
     case 'collision':
       return 'bg-orange-500 text-white border-amber-200 shadow-orange-900/70';
     case 'miss':
-      return 'bg-slate-700 text-slate-100 border-slate-400';
+      return 'bg-slate-800 text-slate-100 border-slate-400';
     case 'heal':
-      return 'bg-emerald-600 text-white border-emerald-300';
+      return 'bg-emerald-500 text-[#080c14] border-emerald-200';
   }
+}
+
+function ObstacleCrystalSvg() {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      className="pointer-events-none h-9 w-9 sm:h-11 sm:w-11"
+      aria-hidden="true"
+      data-testid="obstacle-crystal-svg"
+    >
+      <defs>
+        <linearGradient id="crystalMain" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#00f0ff" />
+          <stop offset="55%" stopColor="#0284c7" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </linearGradient>
+        <linearGradient id="crystalHighlight" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#e0faff" />
+          <stop offset="100%" stopColor="#00f0ff" stopOpacity="0.2" />
+        </linearGradient>
+        <linearGradient id="bastionBase" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#1e293b" />
+          <stop offset="50%" stopColor="#475569" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </linearGradient>
+      </defs>
+      {/* Cast 2.5D Ground Shadow */}
+      <ellipse
+        cx="35"
+        cy="54"
+        rx="22"
+        ry="6.5"
+        fill="rgba(2, 6, 18, 0.78)"
+      />
+      {/* Armored Fortress Plinth */}
+      <polygon
+        points="11,48 20,41 44,41 53,48 47,55 17,55"
+        fill="url(#bastionBase)"
+        stroke="#ffb800"
+        strokeOpacity="0.55"
+        strokeWidth="1.2"
+      />
+      {/* Left Side Crystal Shard */}
+      <polygon
+        points="17,45 14,26 23,19 27,45"
+        fill="#0369a1"
+        stroke="#00f0ff"
+        strokeOpacity="0.65"
+        strokeWidth="1"
+      />
+      {/* Right Side Crystal Shard */}
+      <polygon
+        points="38,45 42,22 50,29 47,45"
+        fill="#0c4a6e"
+        stroke="#00f0ff"
+        strokeOpacity="0.55"
+        strokeWidth="1"
+      />
+      {/* Central Energy Crystal Spire */}
+      <polygon
+        points="23,46 21,21 32,7 43,21 41,46"
+        fill="url(#crystalMain)"
+        stroke="#7df9ff"
+        strokeWidth="1.3"
+      />
+      {/* Facet Specular Highlight */}
+      <polygon
+        points="32,7 26,22 32,44 37,22"
+        fill="url(#crystalHighlight)"
+        opacity="0.7"
+      />
+      {/* Glowing Amber Core Rune */}
+      <polygon
+        points="32,26 35.5,33 32,39 28.5,33"
+        fill="#ffb800"
+        opacity="0.92"
+      />
+    </svg>
+  );
 }
 
 export function BattleGrid({
@@ -89,31 +168,31 @@ export function BattleGrid({
   onTileClick,
 }: BattleGridProps) {
   return (
-    <div className="hud-panel overflow-hidden bg-slate-900/85 p-4 backdrop-blur-md">
+    <div className="hud-panel overflow-hidden p-4 backdrop-blur-md">
       {/* Legend */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
-        <span className="font-semibold tracking-wider text-slate-200 uppercase">
+        <span className="font-orbitron text-[11px] font-bold tracking-[0.16em] text-[#00f0ff] uppercase">
           Tactical Grid ({map.rows}x{map.cols})
         </span>
         <div className="flex flex-wrap items-center gap-3">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-slate-700 bg-slate-900" />
+            <span className="inline-block h-3 w-3 rounded border border-[#00f0ff]/35 bg-[#0b1324]" />
             Normal
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-emerald-500/70 bg-emerald-900/80" />
+            <span className="inline-block h-3 w-3 rounded border border-emerald-400/70 bg-emerald-900/80" />
             Base (HP/EN +10%)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-slate-500 bg-slate-700" />
-            Obstacle
+            <span className="inline-block h-3 w-3 rounded border border-[#ffb800]/60 bg-slate-800" />
+            Crystal Obstacle
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-cyan-400 bg-cyan-500/40" />
+            <span className="inline-block h-3 w-3 rounded border border-[#00f0ff] bg-[#00f0ff]/35" />
             Move
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-rose-400 bg-rose-500/40" />
+            <span className="inline-block h-3 w-3 rounded border border-[#ff2a55] bg-[#ff2a55]/40" />
             Attack
           </span>
           <span className="flex items-center gap-1.5">
@@ -121,14 +200,14 @@ export function BattleGrid({
             MAP AoE
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="animate-danger-zone inline-block h-3 w-3 rounded border border-rose-500" />
+            <span className="animate-danger-zone inline-block h-3 w-3 rounded border border-[#ff2a55]" />
             Danger Zone
           </span>
         </div>
       </div>
 
       {/* Column headers */}
-      <div className="mb-1 grid grid-cols-[24px_repeat(8,minmax(0,1fr))] gap-1.5 text-center text-[11px] font-semibold text-slate-500">
+      <div className="font-sci-num mb-1 grid grid-cols-[24px_repeat(8,minmax(0,1fr))] gap-1.5 text-center text-[11px] font-semibold text-[#00f0ff]/60">
         <div />
         {COL_LABELS.slice(0, map.cols).map((label) => (
           <div key={label}>{label}</div>
@@ -138,29 +217,30 @@ export function BattleGrid({
       {/* 8x8 Grid Rows + Beam/Slash VFX Overlay */}
       <div className="grid grid-cols-[24px_minmax(0,1fr)] gap-1.5">
         {/* Row labels */}
-        <div className="grid grid-rows-8 gap-1.5">
+        <div className="font-sci-num grid grid-rows-8 gap-1.5">
           {map.tiles.map((_, rowIdx) => (
             <div
               key={rowIdx}
-              className="flex items-center justify-center text-[11px] font-semibold text-slate-500"
+              className="flex items-center justify-center text-[11px] font-semibold text-[#00f0ff]/60"
             >
               {rowIdx + 1}
             </div>
           ))}
         </div>
 
-        {/* 8x8 Tiles + 2.5D Camera Zoom + Canvas 60FPS Particle VFX */}
-        <div
-          className="relative overflow-hidden rounded-lg transition-transform duration-300 ease-out"
-          data-testid="battlefield-camera-stage"
-          data-zoomed={cameraZoom ? 'true' : 'false'}
-          style={{
-            transformOrigin: cameraZoom
-              ? `${cameraZoom.originX}% ${cameraZoom.originY}%`
-              : '50% 50%',
-            transform: cameraZoom ? `scale(${cameraZoom.scale})` : 'scale(1)',
-          }}
-        >
+        {/* 8x8 Tiles + 2.5D Camera Zoom (clipped cleanly inside viewport) + Canvas 60FPS Particle VFX */}
+        <div className="overflow-hidden rounded-lg">
+          <div
+            className="relative rounded-lg transition-transform duration-300 ease-out"
+            data-testid="battlefield-camera-stage"
+            data-zoomed={cameraZoom ? 'true' : 'false'}
+            style={{
+              transformOrigin: cameraZoom
+                ? `${cameraZoom.originX}% ${cameraZoom.originY}%`
+                : '50% 50%',
+              transform: cameraZoom ? `scale(${cameraZoom.scale})` : 'scale(1)',
+            }}
+          >
           <div className="grid grid-cols-8 gap-1.5 p-1">
             {map.tiles.flatMap((rowTiles, rowIdx) =>
               rowTiles.map((terrainId, colIdx) => {
@@ -229,33 +309,38 @@ export function BattleGrid({
                         : ''
                     }`}
                   >
+                    {/* Subtle Tech-Grid Corner Micro-Reticle */}
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute top-0.5 left-0.5 h-1.5 w-1.5 border-t border-l border-[#00f0ff]/35"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute right-0.5 bottom-0.5 h-1.5 w-1.5 border-r border-b border-[#00f0ff]/35"
+                    />
+
                     {/* Base / Repair Zone Rotating Energy Ring */}
                     {terrainId === 'repair_zone' && (
                       <span
                         aria-hidden="true"
-                        className="animate-spin-slow pointer-events-none absolute inset-1.5 rounded-full border-2 border-dashed border-emerald-400/55"
+                        className="animate-spin-slow pointer-events-none absolute inset-1.5 rounded-full border-2 border-dashed border-emerald-400/65 shadow-[0_0_10px_rgba(52,211,153,0.4)]"
                       />
                     )}
 
                     {/* Danger Zone Warning Icon */}
                     {isDangerZone && !unit && (
-                      <span className="pointer-events-none text-xs font-extrabold text-rose-300">
+                      <span className="pointer-events-none text-xs font-extrabold text-[#ff2a55]">
                         ⚠️
                       </span>
                     )}
 
                     {/* Terrain subtle indicator */}
                     {!unit && !isDangerZone && terrainId === 'repair_zone' && (
-                      <span className="relative z-10 text-sm font-bold text-emerald-300 drop-shadow-[0_0_6px_rgba(52,211,153,0.9)]">
+                      <span className="relative z-10 text-sm font-bold text-emerald-300 drop-shadow-[0_0_8px_rgba(52,211,153,0.95)]">
                         ✚
                       </span>
                     )}
-                    {!unit && terrainId === 'obstacle' && (
-                      <span className="pointer-events-none flex flex-col items-center justify-center text-amber-400/75">
-                        <span className="text-xs font-bold">⛨</span>
-                        <span className="h-0.5 w-5 rounded bg-amber-400/50" />
-                      </span>
-                    )}
+                    {!unit && terrainId === 'obstacle' && <ObstacleCrystalSvg />}
 
                     {/* Reachable dot when empty */}
                     {!unit && isReachable && terrainId === 'normal' && (
@@ -353,7 +438,7 @@ export function BattleGrid({
                       <span
                         key={evt.id}
                         data-testid="floating-combat-text"
-                        className={`animate-float-pop pointer-events-none absolute top-0 left-1/2 z-30 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-extrabold shadow-lg ${getFloatingTextStyle(
+                        className={`font-sci-num animate-float-pop pointer-events-none absolute top-0 left-1/2 z-30 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-extrabold shadow-lg ${getFloatingTextStyle(
                           evt.variant
                         )}`}
                       >
@@ -376,6 +461,7 @@ export function BattleGrid({
             cols={map.cols}
             bursts={canvasBursts}
           />
+          </div>
         </div>
       </div>
     </div>

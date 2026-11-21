@@ -1,5 +1,13 @@
 export type BgmTrack = 'none' | 'standard' | 'boss';
-export type SfxKind = 'click' | 'beam' | 'slash' | 'hit' | 'explosion' | 'spirit';
+export type SfxKind =
+  | 'click'
+  | 'beam'
+  | 'slash'
+  | 'hit'
+  | 'explosion'
+  | 'spirit'
+  | 'ultimate_charge'
+  | 'ultimate_impact';
 
 interface AudioPrefs {
   bgmEnabled: boolean;
@@ -262,6 +270,30 @@ class SynthAudioEngine {
         this.playTone(ctx, 523.25, 'triangle', now, 0.14, 0.08, 2600);
         this.playTone(ctx, 659.25, 'triangle', now + 0.07, 0.16, 0.08, 2600);
         this.playTone(ctx, 783.99, 'triangle', now + 0.14, 0.22, 0.09, 3000);
+        break;
+      case 'ultimate_charge': {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.65);
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.exponentialRampToValueAtTime(0.11, now + 0.45);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.72);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.75);
+        this.playTone(ctx, 587.33, 'triangle', now + 0.12, 0.3, 0.07, 3200);
+        this.playTone(ctx, 880, 'triangle', now + 0.28, 0.35, 0.08, 3600);
+        break;
+      }
+      case 'ultimate_impact':
+        this.playKick(ctx, now, 0.28);
+        this.playKick(ctx, now + 0.12, 0.22);
+        this.playTone(ctx, 110, 'sawtooth', now, 0.55, 0.15, 600);
+        this.playTone(ctx, 55, 'square', now + 0.04, 0.6, 0.14, 340);
+        this.playTone(ctx, 780, 'sawtooth', now, 0.28, 0.08, 2400);
         break;
     }
   }

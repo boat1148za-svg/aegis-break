@@ -26,12 +26,12 @@ export function SpiritMenuPanel({
 
   return (
     <div
-      className="hud-panel-amber bg-slate-900/90 p-4 backdrop-blur-md"
+      className="hud-panel-amber p-4 backdrop-blur-md"
       data-testid="spirit-menu"
     >
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-xs font-semibold tracking-wider text-amber-400 uppercase">
+          <h2 className="font-orbitron text-xs font-bold tracking-wider text-[#ffb800] uppercase">
             คำสั่งจิตใจ (Spirit Commands)
           </h2>
           <p className="text-[11px] text-slate-400">
@@ -39,7 +39,7 @@ export function SpiritMenuPanel({
           </p>
         </div>
         <span
-          className="rounded-md border border-violet-500/40 bg-violet-500/15 px-2.5 py-1 text-xs font-bold text-violet-200"
+          className="font-sci-num rounded-md border border-violet-400/45 bg-violet-500/15 px-2.5 py-1 text-xs font-bold text-violet-200"
           data-testid="spirit-sp-display"
         >
           SP {unit.sp}/{unit.pilot.maxSp}

@@ -141,29 +141,33 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
       <div className="mt-3 space-y-2 text-xs">
         <div>
           <div className="mb-1 flex justify-between text-slate-300">
-            <span>HP</span>
-            <span>
+            <span className="font-orbitron text-[10px] font-bold tracking-wider text-slate-400">
+              HP
+            </span>
+            <span className="font-sci-num font-bold text-slate-100">
               {unit.hp} / {unit.mecha.maxHp}
             </span>
           </div>
           <TrailingHpBar
             current={unit.hp}
             max={unit.mecha.maxHp}
-            barColorClass={isPlayer ? 'bg-cyan-400' : 'bg-rose-400'}
+            barColorClass={isPlayer ? 'bg-[#00f0ff]' : 'bg-[#ff2a55]'}
             heightClass="h-2.5"
           />
         </div>
 
         <div>
           <div className="mb-1 flex justify-between text-slate-300">
-            <span>EN</span>
-            <span>
+            <span className="font-orbitron text-[10px] font-bold tracking-wider text-slate-400">
+              EN
+            </span>
+            <span className="font-sci-num font-bold text-[#ffb800]">
               {unit.en} / {unit.mecha.maxEn}
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-950">
+          <div className="h-2 overflow-hidden rounded-full bg-[#080c14]">
             <div
-              className="h-full bg-amber-400 transition-all duration-500 ease-out"
+              className="h-full bg-[#ffb800] transition-all duration-500 ease-out"
               style={{ width: `${(unit.en / unit.mecha.maxEn) * 100}%` }}
             />
           </div>
@@ -171,21 +175,21 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
 
         <div>
           <div className="mb-1 flex justify-between text-slate-300">
-            <span>
+            <span className="font-orbitron text-[10px] font-bold tracking-wider text-slate-400">
               WILL{' '}
               {unit.will >= 120 && (
-                <span className="ml-1 rounded bg-amber-500/20 px-1 text-[10px] font-bold text-amber-300">
+                <span className="ml-1 rounded bg-[#ffb800]/25 px-1.5 py-0.5 text-[9px] font-extrabold text-[#ffb800]">
                   MAX POWER!
                 </span>
               )}
             </span>
-            <span className="font-semibold text-amber-300">
+            <span className="font-sci-num font-bold text-[#ffb800]">
               {unit.will} / {unit.maxWill}
             </span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-slate-950">
+          <div className="h-1.5 overflow-hidden rounded-full bg-[#080c14]">
             <div
-              className="h-full bg-gradient-to-r from-amber-500 to-rose-500 transition-all duration-500 ease-out"
+              className="h-full bg-gradient-to-r from-[#ffb800] to-[#ff2a55] transition-all duration-500 ease-out"
               style={{ width: `${Math.max(8, willProgress)}%` }}
             />
           </div>
@@ -194,26 +198,32 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
 
       {/* Mecha Stats */}
       <div className="mt-3 grid grid-cols-4 gap-1.5 text-center text-[11px]">
-        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-1.5">
+        <div className="rounded-lg border border-[#00f0ff]/20 bg-[#080c14]/80 p-1.5">
           <div className="text-[10px] text-slate-400">MOVE</div>
-          <div className="font-bold text-cyan-300">{unit.mecha.move}</div>
+          <div className="font-sci-num font-bold text-[#00f0ff]">
+            {unit.mecha.move}
+          </div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-1.5">
+        <div className="rounded-lg border border-[#00f0ff]/20 bg-[#080c14]/80 p-1.5">
           <div className="text-[10px] text-slate-400">ARMOR</div>
-          <div className="font-bold text-slate-200">{unit.mecha.armor}</div>
+          <div className="font-sci-num font-bold text-slate-100">
+            {unit.mecha.armor}
+          </div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-1.5">
+        <div className="rounded-lg border border-[#00f0ff]/20 bg-[#080c14]/80 p-1.5">
           <div className="text-[10px] text-slate-400">MOB</div>
-          <div className="font-bold text-slate-200">{unit.mecha.mobility}</div>
+          <div className="font-sci-num font-bold text-slate-100">
+            {unit.mecha.mobility}
+          </div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-1.5">
+        <div className="rounded-lg border border-[#00f0ff]/20 bg-[#080c14]/80 p-1.5">
           <div className="text-[10px] text-slate-400">STATUS</div>
           <div
             className={`font-bold ${
               unit.hasActed
                 ? 'text-slate-500'
                 : unit.hasMoved
-                  ? 'text-amber-300'
+                  ? 'text-[#ffb800]'
                   : 'text-emerald-400'
             }`}
           >
@@ -224,25 +234,33 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
 
       {/* Pilot Stats */}
       <div className="mt-2 grid grid-cols-5 gap-1.5 text-center text-[11px]">
-        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-1.5">
+        <div className="rounded-lg border border-slate-800 bg-[#080c14]/70 p-1.5">
           <div className="text-[9px] text-slate-400">MEL</div>
-          <div className="font-bold text-slate-200">{unit.pilot.melee}</div>
+          <div className="font-sci-num font-bold text-slate-200">
+            {unit.pilot.melee}
+          </div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-1.5">
+        <div className="rounded-lg border border-slate-800 bg-[#080c14]/70 p-1.5">
           <div className="text-[9px] text-slate-400">RNG</div>
-          <div className="font-bold text-slate-200">{unit.pilot.ranged}</div>
+          <div className="font-sci-num font-bold text-slate-200">
+            {unit.pilot.ranged}
+          </div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-1.5">
+        <div className="rounded-lg border border-slate-800 bg-[#080c14]/70 p-1.5">
           <div className="text-[9px] text-slate-400">ACC</div>
-          <div className="font-bold text-slate-200">{unit.pilot.accuracy}</div>
+          <div className="font-sci-num font-bold text-slate-200">
+            {unit.pilot.accuracy}
+          </div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-1.5">
+        <div className="rounded-lg border border-slate-800 bg-[#080c14]/70 p-1.5">
           <div className="text-[9px] text-slate-400">EVD</div>
-          <div className="font-bold text-slate-200">{unit.pilot.evade}</div>
+          <div className="font-sci-num font-bold text-slate-200">
+            {unit.pilot.evade}
+          </div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-1.5">
+        <div className="rounded-lg border border-slate-800 bg-[#080c14]/70 p-1.5">
           <div className="text-[9px] text-slate-400">SP</div>
-          <div className="font-bold text-violet-300">
+          <div className="font-sci-num font-bold text-violet-300">
             {unit.sp}/{unit.pilot.maxSp}
           </div>
         </div>

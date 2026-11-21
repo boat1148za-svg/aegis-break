@@ -1,5 +1,57 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Chakra Petch", system-ui, -apple-system, sans-serif;
+  --font-display: "Orbitron", "Chakra Petch", sans-serif;
+  --color-mecha-bg: #080c14;
+  --color-mecha-cyan: #00f0ff;
+  --color-mecha-crimson: #ff2a55;
+  --color-mecha-amber: #ffb800;
+}
+
+@layer base {
+  html,
+  body {
+    font-family: "Chakra Petch", system-ui, -apple-system, sans-serif;
+    background-color: #080c14;
+    color: #e2e8f0;
+  }
+
+  h1,
+  h2 {
+    letter-spacing: 0.02em;
+  }
+}
+
+.font-orbitron {
+  font-family: "Orbitron", "Chakra Petch", sans-serif;
+}
+
+.font-sci-num {
+  font-family: "Orbitron", "Chakra Petch", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* === Post-Processing Overlay (Vignette + Radar Scanlines) === */
+.postprocess-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 56%,
+    rgba(4, 7, 14, 0.52) 84%,
+    rgba(2, 4, 10, 0.84) 100%
+  );
+}
+
+.postprocess-scanlines {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 240, 255, 0.03) 0px,
+    rgba(0, 240, 255, 0.03) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
 @keyframes floatUpPop {
   0% {
     opacity: 0;
@@ -26,11 +78,11 @@
   }
   15% {
     transform: translateX(-6px) rotate(-3deg);
-    filter: brightness(1.6) drop-shadow(0 0 8px rgba(244, 63, 94, 0.9));
+    filter: brightness(1.6) drop-shadow(0 0 8px rgba(255, 42, 85, 0.9));
   }
   35% {
     transform: translateX(6px) rotate(3deg);
-    filter: brightness(1.4) drop-shadow(0 0 8px rgba(244, 63, 94, 0.9));
+    filter: brightness(1.4) drop-shadow(0 0 8px rgba(255, 42, 85, 0.9));
   }
   55% {
     transform: translateX(-4px) rotate(-2deg);
@@ -67,12 +119,12 @@
 
 @keyframes overdriveAura {
   0%, 100% {
-    box-shadow: 0 0 8px 1px rgba(244, 63, 94, 0.85), inset 0 0 8px rgba(251, 191, 36, 0.45);
-    border-color: rgba(251, 191, 36, 0.9);
+    box-shadow: 0 0 10px 1px rgba(255, 184, 0, 0.9), inset 0 0 10px rgba(255, 184, 0, 0.45);
+    border-color: rgba(255, 184, 0, 0.95);
   }
   50% {
-    box-shadow: 0 0 18px 4px rgba(251, 191, 36, 0.9), inset 0 0 12px rgba(244, 63, 94, 0.65);
-    border-color: rgba(244, 63, 94, 0.95);
+    box-shadow: 0 0 22px 4px rgba(255, 42, 85, 0.9), inset 0 0 14px rgba(255, 184, 0, 0.7);
+    border-color: rgba(255, 42, 85, 0.95);
   }
 }
 
@@ -189,14 +241,14 @@
 
 @keyframes dangerZonePulse {
   0%, 100% {
-    background-color: rgba(225, 29, 72, 0.38);
-    border-color: rgba(251, 113, 133, 0.95);
-    box-shadow: inset 0 0 12px rgba(244, 63, 94, 0.65);
+    background-color: rgba(255, 42, 85, 0.38);
+    border-color: rgba(255, 42, 85, 0.98);
+    box-shadow: inset 0 0 14px rgba(255, 42, 85, 0.7);
   }
   50% {
     background-color: rgba(159, 18, 57, 0.18);
-    border-color: rgba(244, 63, 94, 0.45);
-    box-shadow: inset 0 0 4px rgba(244, 63, 94, 0.25);
+    border-color: rgba(255, 42, 85, 0.45);
+    box-shadow: inset 0 0 4px rgba(255, 42, 85, 0.25);
   }
 }
 
@@ -225,12 +277,52 @@
   }
 }
 
+/* Heavy Earthquake Shake for Ultimate Finisher Impact */
+@keyframes heavyScreenShake {
+  0%, 100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  10% {
+    transform: translate(-14px, 9px) rotate(-1.1deg);
+  }
+  20% {
+    transform: translate(14px, -10px) rotate(1.1deg);
+  }
+  30% {
+    transform: translate(-12px, -8px) rotate(-0.9deg);
+  }
+  40% {
+    transform: translate(11px, 9px) rotate(0.9deg);
+  }
+  55% {
+    transform: translate(-9px, 6px) rotate(-0.6deg);
+  }
+  70% {
+    transform: translate(8px, -5px) rotate(0.5deg);
+  }
+  85% {
+    transform: translate(-4px, 3px) rotate(-0.2deg);
+  }
+}
+
+@keyframes ultimateImpactFlash {
+  0% {
+    opacity: 0.96;
+  }
+  28% {
+    opacity: 0.78;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 @keyframes overlimitFlame {
   0%, 100% {
-    box-shadow: 0 0 10px 2px rgba(249, 115, 22, 0.9), inset 0 0 10px rgba(250, 204, 21, 0.55);
+    box-shadow: 0 0 10px 2px rgba(255, 184, 0, 0.9), inset 0 0 10px rgba(255, 184, 0, 0.55);
   }
   50% {
-    box-shadow: 0 0 22px 5px rgba(239, 68, 68, 0.95), inset 0 0 14px rgba(249, 115, 22, 0.75);
+    box-shadow: 0 0 22px 5px rgba(255, 42, 85, 0.95), inset 0 0 14px rgba(255, 184, 0, 0.75);
   }
 }
 
@@ -238,8 +330,147 @@
   animation: screenShake 0.48s ease-in-out;
 }
 
+.animate-heavy-screen-shake {
+  animation: heavyScreenShake 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+.animate-ultimate-flash {
+  animation: ultimateImpactFlash 0.48s ease-out forwards;
+}
+
 .animate-overlimit-flame {
   animation: overlimitFlame 0.85s ease-in-out infinite;
+}
+
+/* === Cinematic Ultimate Finisher Cut-in Keyframes === */
+@keyframes letterboxTopIn {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(0%);
+  }
+}
+
+@keyframes letterboxBottomIn {
+  0% {
+    transform: translateY(100%);
+  }
+  100% {
+    transform: translateY(0%);
+  }
+}
+
+@keyframes speedlineRush {
+  0% {
+    transform: translateX(-110%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(130%);
+    opacity: 0;
+  }
+}
+
+@keyframes ultimateMechaSlam {
+  0% {
+    opacity: 0;
+    transform: translateX(-140px) scale(0.86);
+  }
+  22% {
+    opacity: 1;
+    transform: translateX(10px) scale(1.04);
+  }
+  32% {
+    transform: translateX(0px) scale(1);
+  }
+  92% {
+    opacity: 1;
+    transform: translateX(6px) scale(1.03);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(30px) scale(1.08);
+  }
+}
+
+@keyframes ultimatePilotSlam {
+  0% {
+    opacity: 0;
+    transform: translateX(140px) skewX(-8deg) scale(0.9);
+  }
+  22% {
+    opacity: 1;
+    transform: translateX(-8px) skewX(-8deg) scale(1.03);
+  }
+  32% {
+    transform: translateX(0px) skewX(-8deg) scale(1);
+  }
+  92% {
+    opacity: 1;
+    transform: translateX(-6px) skewX(-8deg) scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-30px) skewX(-8deg) scale(1.06);
+  }
+}
+
+@keyframes ultimateTitleSlam {
+  0% {
+    opacity: 0;
+    transform: scale(1.85);
+    letter-spacing: 0.36em;
+    filter: brightness(2.4);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(0.98);
+    letter-spacing: 0.14em;
+    filter: brightness(1.3);
+  }
+  30% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  90% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+.animate-letterbox-top {
+  animation: letterboxTopIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-letterbox-bottom {
+  animation: letterboxBottomIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-speedline-rush {
+  animation: speedlineRush linear infinite;
+}
+
+.animate-ultimate-mecha {
+  animation: ultimateMechaSlam 1.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-ultimate-pilot {
+  animation: ultimatePilotSlam 1.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-ultimate-title {
+  animation: ultimateTitleSlam 1.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes spriteIdle {
@@ -306,13 +537,13 @@
     opacity: 0;
   }
   20% {
-    opacity: 0.7;
+    opacity: 0.78;
   }
   80% {
-    opacity: 0.55;
+    opacity: 0.6;
   }
   100% {
-    transform: translateY(-90px) translateX(18px);
+    transform: translateY(-96px) translateX(20px);
     opacity: 0;
   }
 }
@@ -326,25 +557,43 @@
   }
 }
 
+@keyframes radarSweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes energyFlow {
+  0% {
+    stroke-dashoffset: 36;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
 @keyframes tilePulseBlue {
   0%, 100% {
-    box-shadow: inset 0 0 12px rgba(34, 211, 238, 0.55), 0 0 8px rgba(34, 211, 238, 0.35);
-    border-color: rgba(34, 211, 238, 0.9);
+    box-shadow: inset 0 0 14px rgba(0, 240, 255, 0.55), 0 0 10px rgba(0, 240, 255, 0.35);
+    border-color: rgba(0, 240, 255, 0.92);
   }
   50% {
-    box-shadow: inset 0 0 20px rgba(34, 211, 238, 0.8), 0 0 14px rgba(34, 211, 238, 0.6);
-    border-color: rgba(165, 243, 252, 1);
+    box-shadow: inset 0 0 22px rgba(0, 240, 255, 0.85), 0 0 16px rgba(0, 240, 255, 0.65);
+    border-color: rgba(186, 250, 255, 1);
   }
 }
 
 @keyframes tilePulseRed {
   0%, 100% {
-    box-shadow: inset 0 0 12px rgba(244, 63, 94, 0.55), 0 0 8px rgba(244, 63, 94, 0.35);
-    border-color: rgba(244, 63, 94, 0.9);
+    box-shadow: inset 0 0 14px rgba(255, 42, 85, 0.58), 0 0 10px rgba(255, 42, 85, 0.38);
+    border-color: rgba(255, 42, 85, 0.92);
   }
   50% {
-    box-shadow: inset 0 0 20px rgba(251, 113, 133, 0.85), 0 0 14px rgba(244, 63, 94, 0.65);
-    border-color: rgba(254, 205, 211, 1);
+    box-shadow: inset 0 0 22px rgba(255, 42, 85, 0.88), 0 0 16px rgba(255, 42, 85, 0.7);
+    border-color: rgba(255, 175, 193, 1);
   }
 }
 
@@ -356,6 +605,15 @@
   animation: spinSlow 8s linear infinite;
 }
 
+.animate-radar-sweep {
+  animation: radarSweep 6.5s linear infinite;
+}
+
+.animate-energy-flow {
+  stroke-dasharray: 8 6;
+  animation: energyFlow 1.1s linear infinite;
+}
+
 .animate-tile-pulse-blue {
   animation: tilePulseBlue 1.4s ease-in-out infinite;
 }
@@ -364,36 +622,48 @@
   animation: tilePulseRed 1.2s ease-in-out infinite;
 }
 
+/* Upgraded 2.5D Tech-Grid Tile with Dimensional Bevel & Holographic Grid Traces */
 .tile-25d {
   box-shadow:
-    inset 0 1px 0 rgba(148, 163, 184, 0.22),
-    inset 0 -3px 0 rgba(2, 6, 23, 0.78),
-    0 3px 5px rgba(2, 6, 23, 0.65);
+    inset 0 1px 0 rgba(0, 240, 255, 0.24),
+    inset 0 -4px 0 rgba(2, 6, 18, 0.88),
+    inset 1px 0 0 rgba(0, 240, 255, 0.08),
+    0 4px 8px rgba(2, 6, 18, 0.7);
   background-image:
-    linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
-  background-size: 10px 10px;
+    linear-gradient(135deg, rgba(0, 240, 255, 0.06) 0%, transparent 48%, rgba(8, 12, 20, 0.35) 100%),
+    linear-gradient(rgba(0, 240, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.08) 1px, transparent 1px);
+  background-size: 100% 100%, 12px 12px, 12px 12px;
+}
+
+.tile-25d:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(0, 240, 255, 0.55),
+    inset 0 -4px 0 rgba(2, 6, 18, 0.88),
+    0 0 12px rgba(0, 240, 255, 0.25);
 }
 
 .tile-obstacle-25d {
   box-shadow:
-    inset 0 2px 0 rgba(251, 191, 36, 0.32),
-    inset 0 -5px 0 rgba(2, 6, 23, 0.95),
-    0 5px 10px rgba(2, 6, 23, 0.85);
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(30, 41, 59, 0.96),
-    rgba(30, 41, 59, 0.96) 6px,
-    rgba(15, 23, 42, 0.98) 6px,
-    rgba(15, 23, 42, 0.98) 12px
-  );
+    inset 0 2px 0 rgba(255, 184, 0, 0.36),
+    inset 0 -5px 0 rgba(2, 6, 18, 0.96),
+    0 6px 12px rgba(2, 6, 18, 0.88);
+  background-image:
+    radial-gradient(circle at 50% 42%, rgba(0, 240, 255, 0.14), transparent 65%),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(15, 23, 42, 0.92),
+      rgba(15, 23, 42, 0.92) 6px,
+      rgba(8, 12, 20, 0.96) 6px,
+      rgba(8, 12, 20, 0.96) 12px
+    );
 }
 
 .hitstop-flash {
   filter: brightness(3.2) contrast(1.25) drop-shadow(0 0 12px #ffffff);
 }
 
-/* === Mecha Cockpit HUD Chamfered Panels === */
+/* === Dark Sci-Fi Mecha 60-30-10 Translucent Glass Cockpit Panels === */
 .hud-panel {
   clip-path: polygon(
     14px 0,
@@ -403,9 +673,11 @@
     0 100%,
     0 14px
   );
+  background-color: rgba(11, 18, 32, 0.78);
   box-shadow:
-    inset 0 0 0 1px rgba(34, 211, 238, 0.32),
-    0 0 22px rgba(6, 182, 212, 0.12);
+    inset 0 0 0 1px rgba(0, 240, 255, 0.38),
+    inset 0 1px 12px rgba(0, 240, 255, 0.08),
+    0 0 26px rgba(0, 240, 255, 0.12);
 }
 
 .hud-panel-amber {
@@ -417,9 +689,11 @@
     0 100%,
     0 14px
   );
+  background-color: rgba(15, 19, 32, 0.8);
   box-shadow:
-    inset 0 0 0 1px rgba(251, 191, 36, 0.38),
-    0 0 22px rgba(245, 158, 11, 0.12);
+    inset 0 0 0 1px rgba(255, 184, 0, 0.45),
+    inset 0 1px 12px rgba(255, 184, 0, 0.08),
+    0 0 24px rgba(255, 184, 0, 0.14);
 }
 
 .hud-panel-rose {
@@ -431,9 +705,11 @@
     0 100%,
     0 14px
   );
+  background-color: rgba(18, 12, 24, 0.8);
   box-shadow:
-    inset 0 0 0 1px rgba(244, 63, 94, 0.42),
-    0 0 24px rgba(225, 29, 72, 0.16);
+    inset 0 0 0 1px rgba(255, 42, 85, 0.48),
+    inset 0 1px 12px rgba(255, 42, 85, 0.1),
+    0 0 26px rgba(255, 42, 85, 0.16);
 }
 
 .hud-btn {
@@ -449,8 +725,14 @@
 
 .radar-bg {
   background-image:
-    radial-gradient(circle at center, rgba(34, 211, 238, 0.12) 0%, transparent 62%),
-    linear-gradient(rgba(34, 211, 238, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34, 211, 238, 0.06) 1px, transparent 1px);
+    radial-gradient(circle at center, rgba(0, 240, 255, 0.14) 0%, transparent 64%),
+    linear-gradient(rgba(0, 240, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.06) 1px, transparent 1px);
   background-size: 100% 100%, 24px 24px, 24px 24px;
+}
+
+/* === 3D Holographic Card Foil === */
+.holo-card-shell {
+  transform-style: preserve-3d;
+  will-change: transform;
 }
