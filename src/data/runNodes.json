@@ -34,7 +34,8 @@
     "eventConfig": {
       "repairHpPercent": 50,
       "repairEnPercent": 50,
-      "trainMaxWillBonus": 10
+      "trainMaxWillBonus": 10,
+      "recruitAllyId": "ally_support_mech"
     }
   },
   {

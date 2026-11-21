@@ -47,7 +47,7 @@ export function UpgradeDraftModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm"
       data-testid="upgrade-draft-modal"
     >
-      <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-cyan-500/40 bg-slate-900 shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-cyan-500/40 bg-slate-900 shadow-2xl">
         {/* Header */}
         <div className="border-b border-slate-800 bg-slate-950/90 px-6 py-5 text-center">
           <p className="text-xs font-semibold tracking-[0.22em] text-amber-400 uppercase">

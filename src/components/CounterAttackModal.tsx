@@ -18,6 +18,8 @@ export function CounterAttackModal({
     enemyPreviewEvade,
     playerCounterWeapon,
     playerCounterPreview,
+    supportDefender,
+    supportDefenderPreview,
   } = prompt;
 
   const canCounter =
@@ -28,7 +30,7 @@ export function CounterAttackModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
       data-testid="counter-attack-modal"
     >
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-rose-500/50 bg-slate-900 shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-rose-500/50 bg-slate-900 shadow-2xl">
         {/* Header */}
         <div className="border-b border-slate-800 bg-rose-950/40 px-6 py-4">
           <p className="text-xs font-semibold tracking-widest text-rose-400 uppercase">
@@ -60,6 +62,22 @@ export function CounterAttackModal({
               </span>
             )}
           </p>
+
+          {supportDefender && supportDefenderPreview && (
+            <div
+              className="mt-3 rounded-lg border border-emerald-400/50 bg-emerald-950/45 px-3.5 py-2 text-xs text-emerald-200"
+              data-testid="support-defense-banner"
+            >
+              <strong>🛡️ Support Defense ทำงาน!</strong>{' '}
+              {supportDefender.icon} {supportDefender.mecha.name} (HP{' '}
+              {supportDefender.hp}) จะกระโดดมารับดาเมจแทนพร้อมสถานะ Defend (-50%
+              DMG → รับเพียง{' '}
+              <strong>
+                {supportDefenderPreview.finalDamage.toLocaleString()}
+              </strong>{' '}
+              ดาเมจ, Hit {supportDefenderPreview.hitRate}%)
+            </div>
+          )}
         </div>
 
         {/* 3 Defense Choices */}

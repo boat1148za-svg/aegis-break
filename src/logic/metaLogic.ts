@@ -1,12 +1,21 @@
 import metaUpgradesJson from '../data/metaUpgrades.json';
+import threatLevelsJson from '../data/threatLevels.json';
 import type {
   MetaBonuses,
   MetaProgressState,
   MetaUpgradeData,
+  ThreatLevelData,
 } from './types';
 
 export const metaConfig = metaUpgradesJson;
 export const metaUpgrades = metaUpgradesJson.upgrades as MetaUpgradeData[];
+export const threatLevels = threatLevelsJson as ThreatLevelData[];
+
+export function getThreatLevelConfig(level: number): ThreatLevelData {
+  return (
+    threatLevels.find((t) => t.level === level) ?? threatLevels[0]
+  );
+}
 
 export function createDefaultMetaProgress(): MetaProgressState {
   return {
@@ -14,6 +23,7 @@ export function createDefaultMetaProgress(): MetaProgressState {
     upgradeLevels: {},
     totalRuns: 0,
     victories: 0,
+    maxUnlockedThreatLevel: 0,
   };
 }
 
@@ -33,6 +43,13 @@ export function loadMetaProgress(): MetaProgressState {
           : {},
       totalRuns: typeof parsed.totalRuns === 'number' ? parsed.totalRuns : 0,
       victories: typeof parsed.victories === 'number' ? parsed.victories : 0,
+      maxUnlockedThreatLevel:
+        typeof parsed.maxUnlockedThreatLevel === 'number'
+          ? Math.max(
+              0,
+              Math.min(threatLevels.length - 1, parsed.maxUnlockedThreatLevel)
+            )
+          : 0,
     };
   } catch {
     return createDefaultMetaProgress();
@@ -109,21 +126,29 @@ export function purchaseMetaUpgrade(
 
 export function calculateRunShardsReward(
   nodesCleared: number,
-  isVictory: boolean
+  isVictory: boolean,
+  threatLevel: number = 0
 ): {
   shardsFromNodes: number;
   bonusShards: number;
+  shardMultiplier: number;
   totalShardsEarned: number;
 } {
+  const threatCfg = getThreatLevelConfig(threatLevel);
   const shardsFromNodes =
     nodesCleared * metaConfig.rewards.shardsPerClearedNode;
   const bonusShards = isVictory
     ? metaConfig.rewards.bossClearBonus
     : metaConfig.rewards.defeatConsolationShards;
 
+  const totalShardsEarned = Math.round(
+    (shardsFromNodes + bonusShards) * threatCfg.shardMultiplier
+  );
+
   return {
     shardsFromNodes,
     bonusShards,
-    totalShardsEarned: shardsFromNodes + bonusShards,
+    shardMultiplier: threatCfg.shardMultiplier,
+    totalShardsEarned,
   };
 }

@@ -1,12 +1,27 @@
 import { useState } from 'react';
-import { getPlayableUnitDefs, getUnitWeapons } from '../logic/dataLoader';
-import { getMetaBonuses } from '../logic/metaLogic';
+import {
+  getPlayableUnitDefs,
+  getUnitDefById,
+  getUnitWeapons,
+} from '../logic/dataLoader';
+import {
+  getMetaBonuses,
+  getThreatLevelConfig,
+  threatLevels,
+} from '../logic/metaLogic';
 import type { MetaProgressState } from '../logic/types';
+import { CompendiumModal } from './CompendiumModal';
 import { MetaUpgradesModal } from './MetaUpgradesModal';
+import { MechaSprite } from './MechaSprite';
+import { PilotPortrait } from './PilotPortrait';
 
 interface HangarScreenProps {
   meta: MetaProgressState;
-  onStartRun: (unitDefId: string) => void;
+  onStartRun: (
+    unitDefId: string,
+    startingAllyIds: string[],
+    threatLevel: number
+  ) => void;
   onPurchaseMetaUpgrade: (upgradeId: string) => void;
 }
 
@@ -16,10 +31,19 @@ export function HangarScreen({
   onPurchaseMetaUpgrade,
 }: HangarScreenProps) {
   const playableUnits = getPlayableUnitDefs();
+  const medicDef = getUnitDefById('ally_aegis_medic');
+  const supportDef = getUnitDefById('ally_support_mech');
   const [selectedId, setSelectedId] = useState<string>(
     playableUnits[0]?.instanceId ?? 'player_giga_rex'
   );
+  const [deployMedic, setDeployMedic] = useState<boolean>(true);
+  const [selectedThreatLevel, setSelectedThreatLevel] = useState<number>(
+    meta.maxUnlockedThreatLevel
+  );
   const [showMetaModal, setShowMetaModal] = useState(false);
+  const [showCompendium, setShowCompendium] = useState(false);
+
+  const activeThreatCfg = getThreatLevelConfig(selectedThreatLevel);
 
   const bonuses = getMetaBonuses(meta);
   const hasAnyMetaBonus =
@@ -75,14 +99,24 @@ export function HangarScreen({
             )}
           </div>
 
-          <button
-            type="button"
-            data-testid="open-meta-upgrades-btn"
-            onClick={() => setShowMetaModal(true)}
-            className="cursor-pointer rounded-lg border border-violet-400/50 bg-violet-600/25 px-4 py-2 text-xs font-bold text-violet-200 transition hover:bg-violet-600/40"
-          >
-            ✨ Meta-Upgrades
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              data-testid="open-compendium-btn"
+              onClick={() => setShowCompendium(true)}
+              className="cursor-pointer rounded-lg border border-cyan-400/50 bg-cyan-600/20 px-4 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-600/35"
+            >
+              📖 Compendium
+            </button>
+            <button
+              type="button"
+              data-testid="open-meta-upgrades-btn"
+              onClick={() => setShowMetaModal(true)}
+              className="cursor-pointer rounded-lg border border-violet-400/50 bg-violet-600/25 px-4 py-2 text-xs font-bold text-violet-200 transition hover:bg-violet-600/40"
+            >
+              ✨ Meta-Upgrades
+            </button>
+          </div>
         </div>
 
         {/* Title */}
@@ -127,9 +161,18 @@ export function HangarScreen({
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="flex h-14 w-14 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 text-3xl">
-                        {unit.icon}
+                      <span className="flex h-16 w-16 items-center justify-center rounded-xl border border-slate-700 bg-slate-950 p-1.5">
+                        <MechaSprite
+                          mechaId={unit.mecha.id}
+                          faction="player"
+                          className="h-13 w-13"
+                        />
                       </span>
+                      <PilotPortrait
+                        pilotId={unit.pilot.id}
+                        faction="player"
+                        className="h-14 w-14 shrink-0"
+                      />
                       <div>
                         <span
                           className={`inline-block rounded px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${
@@ -258,15 +301,175 @@ export function HangarScreen({
           })}
         </div>
 
+        {/* Squad & Wingman Selection */}
+        <div
+          className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/75 p-5"
+          data-testid="hangar-squad-panel"
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-bold tracking-wider text-emerald-400 uppercase">
+                Squad Deployment (จัดทีมลงสนามสูงสุด 3 เครื่อง)
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                ยืนติดกับเพื่อนร่วมทีมระยะ 1 ช่อง เพื่อเปิดใช้งาน Support Attack
+                (+50% DMG, 0 EN) และ Support Defense (รับดาเมจแทนเมื่อ HP &lt; 30%)
+              </p>
+            </div>
+            <span className="rounded bg-slate-800 px-2.5 py-1 text-xs font-bold text-cyan-300">
+              Squad: {1 + (deployMedic ? 1 : 0) + (bonuses.unlockSupportMech ? 1 : 0)}{' '}
+              / 3 Units
+            </span>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            {medicDef && (
+              <button
+                type="button"
+                data-testid="toggle-ally-medic"
+                onClick={() => setDeployMedic((prev) => !prev)}
+                className={`flex cursor-pointer items-center justify-between rounded-xl border p-3.5 text-left transition ${
+                  deployMedic
+                    ? 'border-emerald-400/70 bg-emerald-950/30 ring-1 ring-emerald-400/50'
+                    : 'border-slate-800 bg-slate-950/60 opacity-70 hover:opacity-100'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{medicDef.icon}</span>
+                  <div>
+                    <div className="text-sm font-bold text-slate-100">
+                      {medicDef.mecha.name}{' '}
+                      <span className="text-[10px] font-semibold text-emerald-300">
+                        (Wingman)
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Nano-Repair ซ่อมเพื่อนติดกัน + ปืนลดเกราะ -250 Armor
+                    </div>
+                  </div>
+                </div>
+                <span
+                  className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                    deployMedic
+                      ? 'bg-emerald-500/25 text-emerald-200'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {deployMedic ? '✓ DEPLOY' : 'OFF'}
+                </span>
+              </button>
+            )}
+
+            {supportDef && (
+              <div
+                className={`flex items-center justify-between rounded-xl border p-3.5 text-left ${
+                  bonuses.unlockSupportMech
+                    ? 'border-cyan-400/60 bg-cyan-950/25'
+                    : 'border-slate-800 bg-slate-950/40 opacity-60'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{supportDef.icon}</span>
+                  <div>
+                    <div className="text-sm font-bold text-slate-100">
+                      {supportDef.mecha.name}{' '}
+                      <span className="text-[10px] font-semibold text-cyan-300">
+                        (3rd Slot)
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      {bonuses.unlockSupportMech
+                        ? 'ปลดล็อกแล้ว — ร่วมสู้ตั้งแต่ Node 1!'
+                        : 'ปลดล็อกผ่าน Meta-Upgrades หรือรับเพิ่มที่ Node 3'}
+                    </div>
+                  </div>
+                </div>
+                <span
+                  className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                    bonuses.unlockSupportMech
+                      ? 'bg-cyan-500/25 text-cyan-200'
+                      : 'bg-slate-800 text-slate-500'
+                  }`}
+                >
+                  {bonuses.unlockSupportMech ? '✓ READY' : '🔒 LOCKED'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Threat Level Selector (0–5) */}
+        <div
+          className="mt-6 rounded-2xl border border-rose-500/30 bg-slate-900/75 p-5"
+          data-testid="threat-level-selector"
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xs font-bold tracking-wider text-rose-400 uppercase">
+                Threat Level (ระดับความยาก 0–5)
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                ปราบบอส Node 7 เพื่อปลดล็อกระดับถัดไปและรับตัวคูณ Astral Shards
+                ที่สูงขึ้น
+              </p>
+            </div>
+            <span className="rounded bg-rose-500/15 px-2.5 py-1 text-xs font-bold text-rose-300">
+              Shards x{activeThreatCfg.shardMultiplier}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {threatLevels.map((tl) => {
+              const isUnlocked = tl.level <= meta.maxUnlockedThreatLevel;
+              const isSelected = tl.level === selectedThreatLevel;
+              return (
+                <button
+                  key={tl.level}
+                  type="button"
+                  data-testid={`threat-level-btn-${tl.level}`}
+                  disabled={!isUnlocked}
+                  onClick={() => setSelectedThreatLevel(tl.level)}
+                  className={`cursor-pointer rounded-lg border px-2 py-2 text-center text-xs font-bold transition ${
+                    isSelected
+                      ? 'border-rose-400 bg-rose-600/30 text-rose-100 ring-1 ring-rose-400/70'
+                      : isUnlocked
+                        ? 'border-slate-700 bg-slate-950/70 text-slate-200 hover:border-rose-500/50'
+                        : 'border-slate-800 bg-slate-950/30 text-slate-600'
+                  } disabled:cursor-not-allowed`}
+                >
+                  <div>{isUnlocked ? tl.badge : `🔒 ${tl.badge}`}</div>
+                  <div className="mt-0.5 text-[10px] font-normal opacity-80">
+                    x{tl.shardMultiplier}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <p
+            className="mt-3 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-300"
+            data-testid="threat-level-desc"
+          >
+            <strong className="text-rose-300">{activeThreatCfg.name}:</strong>{' '}
+            {activeThreatCfg.description}
+          </p>
+        </div>
+
         {/* Start Run CTA */}
         <div className="mt-8 flex justify-center">
           <button
             type="button"
             data-testid="start-run-btn"
-            onClick={() => onStartRun(selectedId)}
+            onClick={() =>
+              onStartRun(
+                selectedId,
+                deployMedic ? ['ally_aegis_medic'] : [],
+                selectedThreatLevel
+              )
+            }
             className="cursor-pointer rounded-xl border border-cyan-400/60 bg-cyan-600 px-10 py-3.5 text-base font-bold text-white shadow-lg shadow-cyan-950/60 transition hover:bg-cyan-500"
           >
-            เริ่มเดินทาง (Start Run) →
+            เริ่มเดินทาง (Start Run · {activeThreatCfg.badge}) →
           </button>
         </div>
       </div>
@@ -277,6 +480,10 @@ export function HangarScreen({
           onPurchase={onPurchaseMetaUpgrade}
           onClose={() => setShowMetaModal(false)}
         />
+      )}
+
+      {showCompendium && (
+        <CompendiumModal onClose={() => setShowCompendium(false)} />
       )}
     </div>
   );

@@ -52,6 +52,15 @@ export interface WeaponData {
   enCost: number;
   ammo: number | null;
   willRequired: number;
+  armorBreakAmount?: number;
+}
+
+export interface RepairSkillData {
+  id: string;
+  name: string;
+  range: number;
+  healPercent: number;
+  enCost: number;
 }
 
 export interface SpiritCommandEffects {
@@ -85,6 +94,7 @@ export interface MechaData {
   move: number;
   weaponIds: string[];
   weapons?: WeaponData[];
+  repairSkill?: RepairSkillData;
 }
 
 export interface PilotData {
@@ -133,11 +143,25 @@ export interface MetaUpgradeData {
   effectPerLevel: MetaUpgradeEffect;
 }
 
+export interface ThreatLevelData {
+  level: number;
+  name: string;
+  badge: string;
+  description: string;
+  enemyHpBonusPercent: number;
+  enemyArmorBonus: number;
+  enemyStartWill: number;
+  bossSpecialSkill: boolean;
+  bossRegenPercent: number;
+  shardMultiplier: number;
+}
+
 export interface MetaProgressState {
   astralShards: number;
   upgradeLevels: Record<string, number>;
   totalRuns: number;
   victories: number;
+  maxUnlockedThreatLevel: number;
 }
 
 export interface MetaBonuses {
@@ -150,11 +174,14 @@ export interface MetaBonuses {
 export interface RunSummaryData {
   outcome: 'victory' | 'defeat';
   unitDefId: string;
+  threatLevel: number;
+  unlockedNewThreatLevel: number | null;
   nodesCleared: number;
   totalNodes: number;
   installedUpgradeCount: number;
   shardsFromNodes: number;
   bonusShards: number;
+  shardMultiplier: number;
   totalShardsEarned: number;
   newTotalShards: number;
 }
@@ -178,6 +205,7 @@ export interface NodeEventConfig {
   repairEnPercent?: number;
   restoreSpPercent?: number;
   trainMaxWillBonus?: number;
+  recruitAllyId?: string;
 }
 
 export interface RunNodeData {
@@ -228,6 +256,7 @@ export interface RunPlayerState {
   sp: number;
   maxWillBonus: number;
   installedUpgradeIds: string[];
+  squadAllyIds: string[];
 }
 
 export interface ActiveSpirits {
@@ -257,10 +286,46 @@ export interface BattleUnit {
   installedUpgradeIds: string[];
 }
 
+export interface NarrativeEventChoiceEffects {
+  hpChangePercent?: number;
+  enChangePercent?: number;
+  spChangePercent?: number;
+  maxWillBonus?: number;
+  grantShards?: number;
+  grantRandomCategory?: UpgradeCategory;
+  triggerAmbushBattle?: boolean;
+  rewardAllyId?: string;
+  fallbackShards?: number;
+}
+
+export interface NarrativeEventChoice {
+  id: string;
+  label: string;
+  riskTag: string;
+  description: string;
+  effects: NarrativeEventChoiceEffects;
+}
+
+export interface NarrativeEventData {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+  description: string;
+  choices: NarrativeEventChoice[];
+}
+
 export interface CombatPreview {
   hitRate: number;
+  critRate: number;
   baseDamage: number;
   finalDamage: number;
+}
+
+export interface SupportAttackPreview {
+  ally: BattleUnit;
+  weapon: WeaponData;
+  preview: CombatPreview;
 }
 
 export interface BattleForecast {
@@ -268,6 +333,7 @@ export interface BattleForecast {
   defender: BattleUnit;
   attackerWeapon: WeaponData;
   attackerPreview: CombatPreview;
+  supportAttack: SupportAttackPreview | null;
   defenderCounterWeapon: WeaponData | null;
   defenderPreview: CombatPreview | null;
 }
@@ -281,6 +347,8 @@ export interface CounterPromptData {
   enemyPreviewEvade: CombatPreview;
   playerCounterWeapon: WeaponData | null;
   playerCounterPreview: CombatPreview | null;
+  supportDefender: BattleUnit | null;
+  supportDefenderPreview: CombatPreview | null;
 }
 
 export type UnitAnimationType = 'hit' | 'evade' | 'attack';
@@ -289,11 +357,13 @@ export interface StrikeResolution {
   updatedAttacker: BattleUnit;
   updatedDefender: BattleUnit;
   hit: boolean;
+  isCrit: boolean;
   damage: number;
   destroyed: boolean;
   hitRate: number;
   roll: number;
   vampireHealed: number;
+  armorBroken: number;
 }
 
 export interface FloatingTextEvent {

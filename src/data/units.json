@@ -291,6 +291,72 @@
     }
   },
   {
+    "instanceId": "ally_aegis_medic",
+    "faction": "player",
+    "isSupportAlly": true,
+    "archetype": "Medic / Debuffer",
+    "description": "หุ่นสายซัพพอร์ต มีสกิล Nano-Repair Beam ซ่อมแซมเพื่อนที่ยืนติดกัน 35% และปืน Corrosive Railgun ระยะไกลที่ช่วยลดเกราะศัตรู -250",
+    "icon": "🚑",
+    "shortName": "MED-1",
+    "startPosition": { "row": 6, "col": 0 },
+    "mecha": {
+      "id": "aegis_medic",
+      "name": "Aegis-Medic",
+      "faction": "player",
+      "maxHp": 3800,
+      "maxEn": 140,
+      "armor": 850,
+      "mobility": 50,
+      "move": 5,
+      "repairSkill": {
+        "id": "nano_repair_beam",
+        "name": "Nano-Repair Beam",
+        "range": 1,
+        "healPercent": 35,
+        "enCost": 15
+      },
+      "weaponIds": ["corrosive_railgun", "shock_baton"],
+      "weapons": [
+        {
+          "id": "corrosive_railgun",
+          "name": "Corrosive Railgun",
+          "type": "ranged",
+          "power": 1450,
+          "accuracy": 35,
+          "minRange": 2,
+          "maxRange": 4,
+          "enCost": 15,
+          "ammo": null,
+          "willRequired": 100,
+          "armorBreakAmount": 250
+        },
+        {
+          "id": "shock_baton",
+          "name": "Shock Baton",
+          "type": "melee",
+          "power": 1250,
+          "accuracy": 35,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        }
+      ]
+    },
+    "pilot": {
+      "id": "pilot_mina",
+      "name": "Dr. Mina Aoki",
+      "faction": "player",
+      "melee": 105,
+      "ranged": 120,
+      "accuracy": 170,
+      "evade": 75,
+      "maxSp": 90,
+      "spiritCommandIds": ["trust", "focus", "iron_wall"]
+    }
+  },
+  {
     "instanceId": "ally_support_mech",
     "faction": "player",
     "isSupportAlly": true,

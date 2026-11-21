@@ -1,23 +1,38 @@
 import { getUnitWeapons } from '../logic/dataLoader';
-import { canUseWeapon } from '../logic/gridLogic';
+import { canUseWeapon, getManhattanDistance } from '../logic/gridLogic';
 import type { BattleUnit, WeaponData } from '../logic/types';
 
 interface WeaponMenuPanelProps {
   unit: BattleUnit;
+  allUnits: BattleUnit[];
   selectedWeaponId: string | null;
   onSelectWeapon: (weapon: WeaponData) => void;
   onCancelWeapon: () => void;
+  onRepairAlly: (targetAlly: BattleUnit) => void;
   onWait: () => void;
 }
 
 export function WeaponMenuPanel({
   unit,
+  allUnits,
   selectedWeaponId,
   onSelectWeapon,
   onCancelWeapon,
+  onRepairAlly,
   onWait,
 }: WeaponMenuPanelProps) {
   const unitWeapons = getUnitWeapons(unit);
+  const repairSkill = unit.mecha.repairSkill;
+  const adjacentWoundedAllies = repairSkill
+    ? allUnits.filter(
+        (u) =>
+          u.faction === unit.faction &&
+          u.instanceId !== unit.instanceId &&
+          u.hp > 0 &&
+          u.hp < u.mecha.maxHp &&
+          getManhattanDistance(unit.position, u.position) <= repairSkill.range
+      )
+    : [];
 
   return (
     <div
@@ -109,6 +124,11 @@ export function WeaponMenuPanel({
                     Will {weapon.willRequired}+
                   </span>
                 )}
+                {weapon.armorBreakAmount && weapon.armorBreakAmount > 0 && (
+                  <span className="rounded bg-emerald-500/20 px-1 text-[10px] font-bold text-emerald-300">
+                    ARM -{weapon.armorBreakAmount}
+                  </span>
+                )}
               </div>
 
               {!check.usable && check.reason && (
@@ -120,6 +140,42 @@ export function WeaponMenuPanel({
           );
         })}
       </div>
+
+      {/* Aegis-Medic Adjacent Repair Skill */}
+      {repairSkill && (
+        <div
+          className="mt-3 rounded-lg border border-emerald-500/35 bg-emerald-950/25 p-2.5"
+          data-testid="medic-repair-section"
+        >
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-bold text-emerald-300">
+              🚑 {repairSkill.name} (+{repairSkill.healPercent}% HP)
+            </span>
+            <span className="text-amber-300">EN {repairSkill.enCost}</span>
+          </div>
+          {adjacentWoundedAllies.length > 0 ? (
+            <div className="mt-2 space-y-1.5">
+              {adjacentWoundedAllies.map((ally) => (
+                <button
+                  key={ally.instanceId}
+                  type="button"
+                  data-testid={`repair-ally-btn-${ally.instanceId}`}
+                  disabled={unit.en < repairSkill.enCost}
+                  onClick={() => onRepairAlly(ally)}
+                  className="w-full cursor-pointer rounded-md bg-emerald-600 px-2.5 py-1.5 text-left text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  ซ่อม {ally.icon} {ally.mecha.name} ({ally.hp}/
+                  {ally.mecha.maxHp} HP)
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-1 text-[10px] text-slate-400">
+              ยืนติดเพื่อนร่วมทีมที่บาดเจ็บ (ระยะ 1 ช่อง) เพื่อกดซ่อมแซม
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="mt-3 flex justify-end">
         <button

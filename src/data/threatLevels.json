@@ -1,0 +1,74 @@
+[
+  {
+    "level": 0,
+    "name": "Standard",
+    "badge": "LV.0",
+    "description": "ระดับความยากมาตรฐาน เหมาะสำหรับการเริ่มต้น",
+    "enemyHpBonusPercent": 0,
+    "enemyArmorBonus": 0,
+    "enemyStartWill": 100,
+    "bossSpecialSkill": false,
+    "bossRegenPercent": 0,
+    "shardMultiplier": 1.0
+  },
+  {
+    "level": 1,
+    "name": "Threat Level 1",
+    "badge": "LV.1",
+    "description": "ศัตรูทุกตัว HP +15% · รางวัล Astral Shards x1.2",
+    "enemyHpBonusPercent": 15,
+    "enemyArmorBonus": 0,
+    "enemyStartWill": 100,
+    "bossSpecialSkill": false,
+    "bossRegenPercent": 0,
+    "shardMultiplier": 1.2
+  },
+  {
+    "level": 2,
+    "name": "Threat Level 2",
+    "badge": "LV.2",
+    "description": "ศัตรู HP +20% และเริ่มด่านด้วย Will 110 · รางวัล Astral Shards x1.4",
+    "enemyHpBonusPercent": 20,
+    "enemyArmorBonus": 0,
+    "enemyStartWill": 110,
+    "bossSpecialSkill": false,
+    "bossRegenPercent": 0,
+    "shardMultiplier": 1.4
+  },
+  {
+    "level": 3,
+    "name": "Threat Level 3",
+    "badge": "LV.3",
+    "description": "ศัตรู HP +25%, Will 110 และบอสมีสกิลพิเศษ (ฟื้นฟู 8% + Iron Wall เทิร์นคู่) · Shards x1.65",
+    "enemyHpBonusPercent": 25,
+    "enemyArmorBonus": 0,
+    "enemyStartWill": 110,
+    "bossSpecialSkill": true,
+    "bossRegenPercent": 8,
+    "shardMultiplier": 1.65
+  },
+  {
+    "level": 4,
+    "name": "Threat Level 4",
+    "badge": "LV.4",
+    "description": "ศัตรู HP +35%, Will 115, Armor +100 และบอสมีสกิลพิเศษ · Shards x1.9",
+    "enemyHpBonusPercent": 35,
+    "enemyArmorBonus": 100,
+    "enemyStartWill": 115,
+    "bossSpecialSkill": true,
+    "bossRegenPercent": 8,
+    "shardMultiplier": 1.9
+  },
+  {
+    "level": 5,
+    "name": "Threat Level 5 (APEX)",
+    "badge": "LV.5",
+    "description": "ขีดสุดความท้าทาย! ศัตรู HP +50%, Will 120, Armor +150, บอสมีสกิลพิเศษ · Shards x2.25",
+    "enemyHpBonusPercent": 50,
+    "enemyArmorBonus": 150,
+    "enemyStartWill": 120,
+    "bossSpecialSkill": true,
+    "bossRegenPercent": 10,
+    "shardMultiplier": 2.25
+  }
+]

@@ -1,0 +1,213 @@
+[
+  {
+    "id": "ancient_warship",
+    "title": "พบซากยานรบโบราณ",
+    "subtitle": "Ancient Warship Wreckage",
+    "icon": "🛸",
+    "description": "เรดาร์ตรวจพบซากยานรบยุคเก่าลอยอยู่กลางทุ่งอุกกาบาต แกนพลังงานด้านในยังส่งสัญญาณรังสีความเข้มข้นสูงออกมา แต่ดูเหมือนจะมีชิปยุทธวิธีระดับสูงหลงเหลืออยู่",
+    "choices": [
+      {
+        "id": "salvage_core",
+        "label": "กู้คืนแกนพลังงาน",
+        "riskTag": "เสี่ยงสูง / รางวัลสูง",
+        "description": "ได้รับ Tactical Chip ระดับสูงสุ่ม 1 ชิ้น แต่หุ่นหลักเสีย HP 20% จากแรงระเบิดรังสี",
+        "effects": {
+          "grantRandomCategory": "tactical_chips",
+          "hpChangePercent": -20
+        }
+      },
+      {
+        "id": "collect_scrap",
+        "label": "เก็บเศษเหล็กอย่างปลอดภัย",
+        "riskTag": "ปลอดภัย",
+        "description": "เก็บกู้ชิ้นส่วนภายนอกอย่างระมัดระวัง ได้รับ 30 Astral Shards ทันที",
+        "effects": {
+          "grantShards": 30
+        }
+      },
+      {
+        "id": "field_repair",
+        "label": "ถอดชิ้นส่วนสำรองซ่อมหุ่น",
+        "riskTag": "ฟื้นฟู",
+        "description": "ใช้เกราะและแบตเตอรี่สำรองจากซากยาน ฟื้นฟู HP +35% และ EN +35%",
+        "effects": {
+          "hpChangePercent": 35,
+          "enChangePercent": 35
+        }
+      }
+    ]
+  },
+  {
+    "id": "distress_signal",
+    "title": "สัญญาณขอความช่วยเหลือ",
+    "subtitle": "Distress Signal",
+    "icon": "📡",
+    "description": "ได้รับคลื่นวิทยุฉุกเฉินจากหน่วยสนับสนุนฝ่ายพันธมิตรที่กำลังถูกฝูงโดรนศัตรูเข้าปิดล้อม หากฝ่าวงล้อมเข้าไปช่วยได้ พวกเขาพร้อมเข้าร่วมทีมทันที",
+    "choices": [
+      {
+        "id": "rescue_ally",
+        "label": "เข้าช่วยเหลือทันที!",
+        "riskTag": "สู้ศัตรูกลุ่มย่อย",
+        "description": "เข้าปะทะศัตรูกลุ่มย่อย (2 ตัว) หากชนะจะได้รับหุ่น Support Mech เข้าร่วมทีม (หรือรับ 60 Astral Shards หากทีมเต็มแล้ว)",
+        "effects": {
+          "triggerAmbushBattle": true,
+          "rewardAllyId": "ally_support_mech",
+          "fallbackShards": 60
+        }
+      },
+      {
+        "id": "ignore_signal",
+        "label": "เพิกเฉยและพักฟื้นนักบิน",
+        "riskTag": "ปลอดภัย",
+        "description": "หลีกเลี่ยงการปะทะเพื่อสงวนกำลัง นักบินได้พักผ่อน ฟื้นฟู SP เต็ม 100%",
+        "effects": {
+          "spChangePercent": 100
+        }
+      }
+    ]
+  },
+  {
+    "id": "orbital_reactor",
+    "title": "เตาปฏิกรณ์วงโคจรที่กำลังโอเวอร์โหลด",
+    "subtitle": "Unstable Orbital Reactor",
+    "icon": "⚛️",
+    "description": "สถานีพลังงานย่อยกำลังจะระเบิด คลื่นพลาสมาความร้อนสูงสามารถดึงมาชาร์จพลังงานหุ่นได้ แต่เสี่ยงต่อความเสียหายของตัวถัง",
+    "choices": [
+      {
+        "id": "absorb_plasma",
+        "label": "ดูดซับพลังงานเข้าสู่หุ่น",
+        "riskTag": "เสี่ยงปานกลาง",
+        "description": "ฟื้นฟู EN เต็ม 100% และเพิ่ม Max Will +10 ถาวร แต่เสีย HP 15%",
+        "effects": {
+          "enChangePercent": 100,
+          "maxWillBonus": 10,
+          "hpChangePercent": -15
+        }
+      },
+      {
+        "id": "stabilize_reactor",
+        "label": "ปรับเสถียรภาพเตาปฏิกรณ์",
+        "riskTag": "ปลอดภัย",
+        "description": "ส่งโดรนปิดระบบฉุกเฉินและเก็บผลึกพลังงาน ได้รับ 40 Astral Shards",
+        "effects": {
+          "grantShards": 40
+        }
+      }
+    ]
+  },
+  {
+    "id": "black_market_broker",
+    "title": "พ่อค้าอาวุธตลาดมืด",
+    "subtitle": "Black Market Arms Broker",
+    "icon": "💼",
+    "description": "เรือบรรทุกสินค้าไร้สังกัดส่งสัญญาณข้อเสนอแลกเปลี่ยน — พวกเขาต้องการพลังงาน EN สำรองจากหุ่นของคุณเพื่อแลกกับโมดูลอาวุธทดลอง",
+    "choices": [
+      {
+        "id": "trade_en_for_tech",
+        "label": "ถ่ายโอน EN แลกเทคโนโลยีอาวุธ",
+        "riskTag": "แลกเปลี่ยน",
+        "description": "เสีย EN 40% เพื่อรับการ์ดหมวด Weapon Tech สุ่ม 1 ชิ้นทันที",
+        "effects": {
+          "enChangePercent": -40,
+          "grantRandomCategory": "weapon_tech"
+        }
+      },
+      {
+        "id": "decline_and_repair",
+        "label": "ปฏิเสธและตรวจเช็กซ่อมบำรุง",
+        "riskTag": "ฟื้นฟู",
+        "description": "ไม่ไว้ใจพ่อค้ามืด หยุดพักซ่อมบำรุงหุ่นแทน ฟื้นฟู HP +40%",
+        "effects": {
+          "hpChangePercent": 40
+        }
+      }
+    ]
+  },
+  {
+    "id": "veteran_simulator",
+    "title": "เครื่องจำลองการรบของเอซไพลอต",
+    "subtitle": "Ace Pilot Combat Simulator",
+    "icon": "🎖️",
+    "description": "พบห้องบันทึกข้อมูลการรบของนักบินระดับตำนานในฐานทัพร้าง สามารถเชื่อมต่อระบบประสาทเพื่อฝึกซ้อมปลุกขีดจำกัดได้",
+    "choices": [
+      {
+        "id": "intense_training",
+        "label": "ฝึกซ้อมเข้มข้นเต็มรูปแบบ",
+        "riskTag": "ปลุกขีดจำกัด",
+        "description": "เพิ่ม Max Will +15 ถาวรตลอดรอบนี้ แต่ใช้พลังสมาธิ SP 25%",
+        "effects": {
+          "maxWillBonus": 15,
+          "spChangePercent": -25
+        }
+      },
+      {
+        "id": "download_tactics",
+        "label": "ดาวน์โหลดข้อมูลยุทธวิธี",
+        "riskTag": "สมดุล",
+        "description": "เก็บข้อมูลการรบอย่างปลอดภัย รับ 35 Astral Shards และฟื้นฟู SP +30%",
+        "effects": {
+          "grantShards": 35,
+          "spChangePercent": 30
+        }
+      }
+    ]
+  },
+  {
+    "id": "abandoned_depot",
+    "title": "คลังซ่อมบำรุงแนวหน้า",
+    "subtitle": "Abandoned Repair Depot",
+    "icon": "🔧",
+    "description": "คลังซ่อมบำรุงที่ยังคงมีระบบแขนกลอัตโนมัติทำงานอยู่ สามารถเลือกใช้พลังงานซ่อมหุ่นหรือรื้อค้นตู้เก็บชิ้นส่วนเสริม",
+    "choices": [
+      {
+        "id": "full_maintenance",
+        "label": "ซ่อมบำรุงฉุกเฉิน (HP/EN +50%)",
+        "riskTag": "ฟื้นฟู",
+        "description": "ฟื้นฟู HP +50% และ EN +50% ของค่าสูงสุด",
+        "effects": {
+          "hpChangePercent": 50,
+          "enChangePercent": 50
+        }
+      },
+      {
+        "id": "scavenge_part",
+        "label": "รื้อค้นตู้ชิ้นส่วนเสริม",
+        "riskTag": "อัปเกรด",
+        "description": "ได้รับ Power Part สุ่ม 1 ชิ้นติดตั้งทันที",
+        "effects": {
+          "grantRandomCategory": "power_parts"
+        }
+      }
+    ]
+  },
+  {
+    "id": "astral_anomaly",
+    "title": "รอยแยกพลังงาน Astral",
+    "subtitle": "Astral Rift Anomaly",
+    "icon": "🌌",
+    "description": "รอยแยกมิติสีม่วงทองปรากฏขึ้นตรงหน้า คลื่นพลังงาน Astral สามารถปลุกพลังจิตและตกผลึกเป็น Astral Shards ได้ แต่แรงโน้มถ่วงจะบีบอัดเกราะหุ่น",
+    "choices": [
+      {
+        "id": "enter_rift",
+        "label": "เข้าใกล้รอยแยกเพื่อเก็บผลึก",
+        "riskTag": "เสี่ยงสูง / รางวัลสูง",
+        "description": "ฟื้นฟู SP เต็ม 100% และรับ 45 Astral Shards แต่เสีย HP 20%",
+        "effects": {
+          "spChangePercent": 100,
+          "grantShards": 45,
+          "hpChangePercent": -20
+        }
+      },
+      {
+        "id": "bypass_safely",
+        "label": "อ้อมผ่านอย่างปลอดภัย",
+        "riskTag": "ปลอดภัย",
+        "description": "หลีกเลี่ยงแรงโน้มถ่วงและปรับจูนระบบ ฟื้นฟู HP +25% และ EN +25%",
+        "effects": {
+          "hpChangePercent": 25,
+          "enChangePercent": 25
+        }
+      }
+    ]
+  }
+]

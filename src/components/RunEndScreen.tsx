@@ -84,9 +84,17 @@ export function RunEndScreen({
             className="rounded-xl border border-violet-500/40 bg-violet-950/25 p-5"
             data-testid="run-end-shards-box"
           >
-            <div className="text-xs font-semibold tracking-wider text-violet-300 uppercase">
-              Meta-Progression Reward · Astral Shards
+            <div className="flex items-center justify-between text-xs font-semibold tracking-wider text-violet-300 uppercase">
+              <span>Meta-Progression Reward · Astral Shards</span>
+              <span className="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] text-rose-200">
+                Threat Lv.{summary.threatLevel} (x{summary.shardMultiplier})
+              </span>
             </div>
+            {summary.unlockedNewThreatLevel !== null && (
+              <div className="mt-2 rounded-lg border border-amber-400/50 bg-amber-950/40 px-3 py-1.5 text-xs font-bold text-amber-200">
+                🔓 ปลดล็อก Threat Level {summary.unlockedNewThreatLevel} สำเร็จ!
+              </div>
+            )}
             <div className="mt-3 space-y-1.5 text-xs text-slate-300">
               <div className="flex justify-between">
                 <span>รางวัลตามจำนวนด่านที่ผ่าน ({summary.nodesCleared} ด่าน)</span>

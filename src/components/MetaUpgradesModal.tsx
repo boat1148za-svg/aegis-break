@@ -17,7 +17,7 @@ export function MetaUpgradesModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm"
       data-testid="meta-upgrades-modal"
     >
-      <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-violet-500/45 bg-slate-900 shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-violet-500/45 bg-slate-900 shadow-2xl">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 bg-slate-950/90 px-6 py-4">
           <div>

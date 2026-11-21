@@ -1,4 +1,7 @@
+import { isUnitInOverdrive } from '../logic/combatCalculator';
 import { combatConfig, getTerrainById } from '../logic/dataLoader';
+import { MechaSprite } from './MechaSprite';
+import { PilotPortrait } from './PilotPortrait';
 import type { BattleUnit, StageMapData } from '../logic/types';
 
 interface UnitInfoPanelProps {
@@ -31,6 +34,14 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
 
   const activeBuffBadges: Array<{ id: string; label: string; style: string }> =
     [];
+  if (isUnitInOverdrive(unit)) {
+    activeBuffBadges.push({
+      id: 'overdrive',
+      label: '⚡ OVERDRIVE (+30% DMG · +25% CRIT · -30% ARM)',
+      style:
+        'border-amber-400/80 bg-gradient-to-r from-rose-600/35 to-amber-500/30 text-amber-200',
+    });
+  }
   if (unit.activeSpirits.valor) {
     activeBuffBadges.push({
       id: 'valor',
@@ -70,7 +81,17 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <span className="text-2xl">{unit.icon}</span>
+          <PilotPortrait
+            pilotId={unit.pilot.id}
+            faction={unit.faction}
+            className="h-11 w-11 shrink-0"
+          />
+          <MechaSprite
+            mechaId={unit.mecha.id}
+            faction={unit.faction}
+            acted={unit.hasActed}
+            className="h-10 w-10 shrink-0"
+          />
           <div>
             <h2 className="text-base font-bold text-slate-100">
               {unit.mecha.name}

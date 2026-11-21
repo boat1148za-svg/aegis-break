@@ -34,5 +34,23 @@
       "damageTakenMultiplier": 1.0,
       "evadeBonus": 30
     }
+  },
+  "support": {
+    "maxSquadSize": 3,
+    "adjacentDistance": 1,
+    "supportAttackDamageMultiplier": 0.5,
+    "supportAttackEnCost": 0,
+    "supportDefenseHpThresholdPercent": 30
+  },
+  "critical": {
+    "baseRate": 10,
+    "damageMultiplier": 1.5
+  },
+  "overdrive": {
+    "hpThresholdPercent": 25,
+    "enThresholdPercent": 20,
+    "damageBonusPercent": 30,
+    "critRateBonus": 25,
+    "armorPenaltyPercent": 30
   }
 }

@@ -1,5 +1,11 @@
+import { isUnitInOverdrive } from '../logic/combatCalculator';
 import { getTerrainById } from '../logic/dataLoader';
 import { getUnitAt, posKey } from '../logic/gridLogic';
+import {
+  CombatVfxOverlay,
+  type CombatVfxEvent,
+} from './CombatVfxOverlay';
+import { MechaSprite } from './MechaSprite';
 import type {
   BattleUnit,
   FloatingTextEvent,
@@ -17,6 +23,7 @@ interface BattleGridProps {
   attackRangeTileKeys: Set<string>;
   floatingTexts: FloatingTextEvent[];
   unitAnimations: Record<string, UnitAnimationType>;
+  combatVfx: CombatVfxEvent[];
   onTileClick: (pos: GridPosition) => void;
 }
 
@@ -68,6 +75,7 @@ export function BattleGrid({
   attackRangeTileKeys,
   floatingTexts,
   unitAnimations,
+  combatVfx,
   onTileClick,
 }: BattleGridProps) {
   return (
@@ -109,151 +117,187 @@ export function BattleGrid({
         ))}
       </div>
 
-      {/* 8x8 Grid Rows */}
-      <div className="space-y-1.5">
-        {map.tiles.map((rowTiles, rowIdx) => (
-          <div
-            key={rowIdx}
-            className="grid grid-cols-[24px_repeat(8,minmax(0,1fr))] gap-1.5"
-          >
-            <div className="flex items-center justify-center text-[11px] font-semibold text-slate-500">
+      {/* 8x8 Grid Rows + Beam/Slash VFX Overlay */}
+      <div className="grid grid-cols-[24px_minmax(0,1fr)] gap-1.5">
+        {/* Row labels */}
+        <div className="grid grid-rows-8 gap-1.5">
+          {map.tiles.map((_, rowIdx) => (
+            <div
+              key={rowIdx}
+              className="flex items-center justify-center text-[11px] font-semibold text-slate-500"
+            >
               {rowIdx + 1}
             </div>
+          ))}
+        </div>
 
-            {rowTiles.map((terrainId, colIdx) => {
-              const pos: GridPosition = { row: rowIdx, col: colIdx };
-              const key = posKey(pos);
-              const terrain = getTerrainById(terrainId);
-              const unit = getUnitAt(pos, units);
-              const isSelected = unit?.instanceId === selectedUnitId;
-              const isAttackRange = attackRangeTileKeys.has(key);
-              const isReachable = !isAttackRange && reachableTileKeys.has(key);
-              const isAttackableEnemy =
-                isAttackRange && unit?.faction === 'enemy';
-              const tileFloats = floatingTexts.filter(
-                (f) => f.position.row === rowIdx && f.position.col === colIdx
-              );
+        {/* 8x8 Tiles + SVG VFX Layer */}
+        <div className="relative">
+          <div className="grid grid-cols-8 gap-1.5">
+            {map.tiles.flatMap((rowTiles, rowIdx) =>
+              rowTiles.map((terrainId, colIdx) => {
+                const pos: GridPosition = { row: rowIdx, col: colIdx };
+                const key = posKey(pos);
+                const terrain = getTerrainById(terrainId);
+                const unit = getUnitAt(pos, units);
+                const isSelected = unit?.instanceId === selectedUnitId;
+                const isAttackRange = attackRangeTileKeys.has(key);
+                const isReachable =
+                  !isAttackRange && reachableTileKeys.has(key);
+                const isAttackableEnemy =
+                  isAttackRange && unit?.faction === 'enemy';
+                const isOverdrive = unit ? isUnitInOverdrive(unit) : false;
+                const tileFloats = floatingTexts.filter(
+                  (f) => f.position.row === rowIdx && f.position.col === colIdx
+                );
 
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  data-testid={`tile-${rowIdx}-${colIdx}`}
-                  data-terrain={terrainId}
-                  data-reachable={isReachable ? 'true' : 'false'}
-                  data-attack-range={isAttackRange ? 'true' : 'false'}
-                  onClick={() => onTileClick(pos)}
-                  title={`${COL_LABELS[colIdx]}${rowIdx + 1} - ${terrain?.name ?? terrainId}${unit ? ` (${unit.mecha.name})` : ''}`}
-                  className={`relative flex aspect-square cursor-pointer flex-col items-center justify-center rounded-lg border transition-all ${getTerrainStyle(
-                    terrainId
-                  )} ${
-                    isReachable
-                      ? 'bg-cyan-500/25! border-cyan-400! ring-1 ring-cyan-400/70 hover:bg-cyan-500/40!'
-                      : ''
-                  } ${
-                    isAttackRange
-                      ? 'bg-rose-500/25! border-rose-500! ring-1 ring-rose-400/70 hover:bg-rose-500/35!'
-                      : ''
-                  } ${
-                    isAttackableEnemy
-                      ? 'ring-2! ring-rose-300! cursor-crosshair!'
-                      : ''
-                  } ${
-                    isSelected
-                      ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-950'
-                      : ''
-                  }`}
-                >
-                  {/* Terrain subtle indicator */}
-                  {!unit && terrainId === 'repair_zone' && (
-                    <span className="text-sm font-bold text-emerald-400/90">
-                      ✚
-                    </span>
-                  )}
-                  {!unit && terrainId === 'obstacle' && (
-                    <span className="text-sm text-slate-400/80">▲</span>
-                  )}
-
-                  {/* Reachable dot when empty */}
-                  {!unit && isReachable && terrainId === 'normal' && (
-                    <span className="h-2.5 w-2.5 rounded-full bg-cyan-300/80 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-                  )}
-
-                  {/* Unit Token */}
-                  {unit && (
-                    <div
-                      className={`flex h-full w-full flex-col items-center justify-center rounded-md p-1 ${
-                        unit.faction === 'player'
-                          ? 'bg-cyan-500/20 text-cyan-100'
-                          : 'bg-rose-500/20 text-rose-100'
-                      } ${unit.hasActed ? 'opacity-55' : ''} ${getUnitAnimationClass(
-                        unitAnimations[unit.instanceId]
-                      )}`}
-                    >
-                      <span className="text-lg leading-none sm:text-xl">
-                        {unit.icon}
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    data-testid={`tile-${rowIdx}-${colIdx}`}
+                    data-terrain={terrainId}
+                    data-reachable={isReachable ? 'true' : 'false'}
+                    data-attack-range={isAttackRange ? 'true' : 'false'}
+                    onClick={() => onTileClick(pos)}
+                    title={`${COL_LABELS[colIdx]}${rowIdx + 1} - ${terrain?.name ?? terrainId}${unit ? ` (${unit.mecha.name})` : ''}`}
+                    className={`relative flex aspect-square cursor-pointer flex-col items-center justify-center rounded-lg border transition-all ${getTerrainStyle(
+                      terrainId
+                    )} ${
+                      isReachable
+                        ? 'bg-cyan-500/25! border-cyan-400! ring-1 ring-cyan-400/70 hover:bg-cyan-500/40!'
+                        : ''
+                    } ${
+                      isAttackRange
+                        ? 'bg-rose-500/25! border-rose-500! ring-1 ring-rose-400/70 hover:bg-rose-500/35!'
+                        : ''
+                    } ${
+                      isAttackableEnemy
+                        ? 'ring-2! ring-rose-300! cursor-crosshair!'
+                        : ''
+                    } ${
+                      isOverdrive
+                        ? 'animate-overdrive-aura border-amber-400!'
+                        : ''
+                    } ${
+                      isSelected
+                        ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-950'
+                        : ''
+                    }`}
+                  >
+                    {/* Terrain subtle indicator */}
+                    {!unit && terrainId === 'repair_zone' && (
+                      <span className="text-sm font-bold text-emerald-400/90">
+                        ✚
                       </span>
-                      <span className="mt-0.5 truncate text-[10px] font-bold tracking-tight">
-                        {unit.shortName}
-                      </span>
-                      {/* Mini HP Bar (smooth transition) */}
-                      <div className="mt-0.5 h-1 w-4/5 overflow-hidden rounded-full bg-slate-950/90">
-                        <div
-                          className={`h-full transition-all duration-500 ease-out ${
-                            unit.faction === 'player'
-                              ? 'bg-cyan-400'
-                              : 'bg-rose-400'
-                          }`}
-                          style={{
-                            width: `${Math.max(
-                              0,
-                              Math.min(100, (unit.hp / unit.mecha.maxHp) * 100)
-                            )}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
+                    )}
+                    {!unit && terrainId === 'obstacle' && (
+                      <span className="text-sm text-slate-400/80">▲</span>
+                    )}
 
-                  {/* Active Spirit Buff icons on unit tile */}
-                  {unit &&
-                    (unit.activeSpirits.valor ||
-                      unit.activeSpirits.focus ||
-                      unit.activeSpirits.ironWall) && (
-                      <span
-                        className="absolute top-0.5 left-0.5 flex gap-0.5 text-[9px] leading-none"
-                        data-testid={`tile-buffs-${unit.instanceId}`}
+                    {/* Reachable dot when empty */}
+                    {!unit && isReachable && terrainId === 'normal' && (
+                      <span className="h-2.5 w-2.5 rounded-full bg-cyan-300/80 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+                    )}
+
+                    {/* Unit Token with Custom Mecha SVG */}
+                    {unit && (
+                      <div
+                        className={`flex h-full w-full flex-col items-center justify-center rounded-md p-0.5 ${
+                          unit.faction === 'player'
+                            ? 'bg-cyan-500/15 text-cyan-100'
+                            : 'bg-rose-500/15 text-rose-100'
+                        } ${getUnitAnimationClass(
+                          unitAnimations[unit.instanceId]
+                        )}`}
                       >
-                        {unit.activeSpirits.valor && <span>🔥</span>}
-                        {unit.activeSpirits.focus && <span>🎯</span>}
-                        {unit.activeSpirits.ironWall && <span>🛡️</span>}
+                        <MechaSprite
+                          mechaId={unit.mecha.id}
+                          faction={unit.faction}
+                          acted={unit.hasActed}
+                          className="h-7 w-7 sm:h-9 sm:w-9"
+                        />
+                        <span className="truncate text-[9px] leading-none font-bold tracking-tight">
+                          {unit.shortName}
+                        </span>
+                        {/* Mini HP Bar (smooth transition) */}
+                        <div className="mt-0.5 h-1 w-4/5 overflow-hidden rounded-full bg-slate-950/90">
+                          <div
+                            className={`h-full transition-all duration-500 ease-out ${
+                              unit.faction === 'player'
+                                ? 'bg-cyan-400'
+                                : 'bg-rose-400'
+                            }`}
+                            style={{
+                              width: `${Math.max(
+                                0,
+                                Math.min(
+                                  100,
+                                  (unit.hp / unit.mecha.maxHp) * 100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Active Spirit Buff icons on unit tile */}
+                    {unit &&
+                      (unit.activeSpirits.valor ||
+                        unit.activeSpirits.focus ||
+                        unit.activeSpirits.ironWall) && (
+                        <span
+                          className="absolute top-0.5 left-0.5 flex gap-0.5 text-[9px] leading-none"
+                          data-testid={`tile-buffs-${unit.instanceId}`}
+                        >
+                          {unit.activeSpirits.valor && <span>🔥</span>}
+                          {unit.activeSpirits.focus && <span>🎯</span>}
+                          {unit.activeSpirits.ironWall && <span>🛡️</span>}
+                        </span>
+                      )}
+
+                    {/* Overdrive badge */}
+                    {unit && isOverdrive && (
+                      <span
+                        className="absolute right-0.5 bottom-0.5 rounded bg-gradient-to-r from-rose-600 to-amber-500 px-1 text-[8px] font-extrabold text-white shadow"
+                        data-testid={`tile-overdrive-${unit.instanceId}`}
+                      >
+                        OD
                       </span>
                     )}
 
-                  {/* Base corner indicator when unit stands on Repair Zone */}
-                  {unit && terrainId === 'repair_zone' && (
-                    <span className="absolute top-0.5 right-1 text-[10px] font-bold text-emerald-400">
-                      ✚
-                    </span>
-                  )}
+                    {/* Base corner indicator when unit stands on Repair Zone */}
+                    {unit && terrainId === 'repair_zone' && (
+                      <span className="absolute top-0.5 right-1 text-[10px] font-bold text-emerald-400">
+                        ✚
+                      </span>
+                    )}
 
-                  {/* Floating Combat Popups (Damage / MISS / Heal) */}
-                  {tileFloats.map((evt) => (
-                    <span
-                      key={evt.id}
-                      data-testid="floating-combat-text"
-                      className={`animate-float-pop pointer-events-none absolute top-0 left-1/2 z-30 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-extrabold shadow-lg ${getFloatingTextStyle(
-                        evt.variant
-                      )}`}
-                    >
-                      {evt.text}
-                    </span>
-                  ))}
-                </button>
-              );
-            })}
+                    {/* Floating Combat Popups (Damage / MISS / Heal) */}
+                    {tileFloats.map((evt) => (
+                      <span
+                        key={evt.id}
+                        data-testid="floating-combat-text"
+                        className={`animate-float-pop pointer-events-none absolute top-0 left-1/2 z-30 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-extrabold shadow-lg ${getFloatingTextStyle(
+                          evt.variant
+                        )}`}
+                      >
+                        {evt.text}
+                      </span>
+                    ))}
+                  </button>
+                );
+              })
+            )}
           </div>
-        ))}
+
+          <CombatVfxOverlay
+            rows={map.rows}
+            cols={map.cols}
+            effects={combatVfx}
+          />
+        </div>
       </div>
     </div>
   );

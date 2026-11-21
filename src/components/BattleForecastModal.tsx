@@ -1,3 +1,6 @@
+import { isUnitInOverdrive } from '../logic/combatCalculator';
+import { MechaSprite } from './MechaSprite';
+import { PilotPortrait } from './PilotPortrait';
 import type { BattleForecast } from '../logic/types';
 
 interface BattleForecastModalProps {
@@ -16,14 +19,16 @@ export function BattleForecastModal({
     defender,
     attackerWeapon,
     attackerPreview,
+    supportAttack,
     defenderCounterWeapon,
     defenderPreview,
   } = forecast;
 
-  const projectedDefenderHp = Math.max(
-    0,
-    defender.hp - attackerPreview.finalDamage
-  );
+  const totalCombinedDamage =
+    attackerPreview.finalDamage +
+    (supportAttack ? supportAttack.preview.finalDamage : 0);
+
+  const projectedDefenderHp = Math.max(0, defender.hp - totalCombinedDamage);
   const projectedAttackerHp = defenderPreview
     ? Math.max(0, attacker.hp - defenderPreview.finalDamage)
     : attacker.hp;
@@ -33,7 +38,7 @@ export function BattleForecastModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
       data-testid="battle-forecast-modal"
     >
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
         {/* Header */}
         <div className="border-b border-slate-800 bg-slate-950/90 px-6 py-4">
           <p className="text-xs font-semibold tracking-widest text-amber-400 uppercase">
@@ -49,8 +54,17 @@ export function BattleForecastModal({
           {/* Attacker Card */}
           <div className="rounded-xl border border-cyan-500/40 bg-cyan-950/20 p-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">{attacker.icon}</span>
+              <div className="flex items-center gap-2.5">
+                <PilotPortrait
+                  pilotId={attacker.pilot.id}
+                  faction={attacker.faction}
+                  className="h-11 w-11 shrink-0"
+                />
+                <MechaSprite
+                  mechaId={attacker.mecha.id}
+                  faction={attacker.faction}
+                  className="h-9 w-9 shrink-0"
+                />
                 <div>
                   <div className="text-sm font-bold text-cyan-200">
                     {attacker.mecha.name}
@@ -66,13 +80,19 @@ export function BattleForecastModal({
             </div>
 
             <div className="mt-3 space-y-1.5 text-xs text-slate-300">
-              {(attacker.activeSpirits.valor ||
+              {(isUnitInOverdrive(attacker) ||
+                attacker.activeSpirits.valor ||
                 attacker.activeSpirits.focus ||
                 attacker.activeSpirits.ironWall) && (
                 <div
                   className="mb-2 flex flex-wrap gap-1"
                   data-testid="forecast-attacker-buffs"
                 >
+                  {isUnitInOverdrive(attacker) && (
+                    <span className="rounded bg-gradient-to-r from-rose-600/50 to-amber-500/40 px-1.5 py-0.5 text-[10px] font-bold text-amber-200">
+                      ⚡ OVERDRIVE (+30% DMG / +25% CRIT)
+                    </span>
+                  )}
                   {attacker.activeSpirits.valor && (
                     <span className="rounded bg-rose-500/25 px-1.5 py-0.5 text-[10px] font-bold text-rose-200">
                       🔥 Valor x2.0
@@ -134,6 +154,9 @@ export function BattleForecastModal({
                   >
                     {attackerPreview.hitRate}%
                   </div>
+                  <div className="text-[10px] text-amber-300/90">
+                    CRIT {attackerPreview.critRate}%
+                  </div>
                 </div>
                 <div className="rounded bg-slate-900 p-2">
                   <div className="text-[10px] text-slate-400">
@@ -147,14 +170,55 @@ export function BattleForecastModal({
                   </div>
                 </div>
               </div>
+
+              {supportAttack && (
+                <div
+                  className="mt-2.5 rounded-lg border border-emerald-500/40 bg-emerald-950/35 p-2.5 text-xs"
+                  data-testid="forecast-support-attack"
+                >
+                  <div className="flex items-center justify-between font-bold text-emerald-300">
+                    <span>
+                      🤝 Support Attack: {supportAttack.ally.icon}{' '}
+                      {supportAttack.ally.mecha.name}
+                    </span>
+                    <span className="text-[10px] text-emerald-200">
+                      50% DMG · 0 EN
+                    </span>
+                  </div>
+                  <div className="mt-1 flex justify-between text-[11px] text-slate-300">
+                    <span>
+                      {supportAttack.weapon.name} (Hit{' '}
+                      {supportAttack.preview.hitRate}%)
+                    </span>
+                    <span className="font-bold text-amber-300">
+                      +{supportAttack.preview.finalDamage.toLocaleString()} DMG
+                    </span>
+                  </div>
+                  <div className="mt-1 flex justify-between border-t border-emerald-500/25 pt-1 text-[11px] font-bold text-emerald-200">
+                    <span>ดาเมจรวมทั้งหมด</span>
+                    <span data-testid="forecast-combined-dmg">
+                      {totalCombinedDamage.toLocaleString()} DMG
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Defender Card */}
           <div className="rounded-xl border border-rose-500/40 bg-rose-950/20 p-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">{defender.icon}</span>
+              <div className="flex items-center gap-2.5">
+                <PilotPortrait
+                  pilotId={defender.pilot.id}
+                  faction={defender.faction}
+                  className="h-11 w-11 shrink-0"
+                />
+                <MechaSprite
+                  mechaId={defender.mecha.id}
+                  faction={defender.faction}
+                  className="h-9 w-9 shrink-0"
+                />
                 <div>
                   <div className="text-sm font-bold text-rose-200">
                     {defender.mecha.name}

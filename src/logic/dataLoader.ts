@@ -7,7 +7,7 @@ import pilotsJson from '../data/pilots.json';
 import unitsJson from '../data/units.json';
 import stage1MapJson from '../data/stage1Map.json';
 import runNodesJson from '../data/runNodes.json';
-import { getMetaBonuses } from './metaLogic';
+import { getMetaBonuses, getThreatLevelConfig } from './metaLogic';
 import { applyUpgradesToMecha } from './upgradeLogic';
 import type {
   BattleUnit,
@@ -110,12 +110,20 @@ export function getEffectivePlayerMaxSp(
 
 export function createRunPlayerState(
   unitDefId: string,
-  meta?: MetaProgressState
+  meta?: MetaProgressState,
+  startingAllyIds: string[] = []
 ): RunPlayerState {
   const def = getUnitDefById(unitDefId) ?? getPlayableUnitDefs()[0];
   const metaBonuses = meta
     ? getMetaBonuses(meta)
     : { hpBonus: 0, spBonus: 0, armorBonus: 0, unlockSupportMech: false };
+
+  const allies = new Set<string>(startingAllyIds);
+  if (metaBonuses.unlockSupportMech) {
+    allies.add('ally_support_mech');
+  }
+
+  const maxAllies = Math.max(0, combatConfig.support.maxSquadSize - 1);
 
   return {
     unitDefId: def.instanceId,
@@ -124,6 +132,7 @@ export function createRunPlayerState(
     sp: def.pilot.maxSp + metaBonuses.spBonus,
     maxWillBonus: 0,
     installedUpgradeIds: [],
+    squadAllyIds: Array.from(allies).slice(0, maxAllies),
   };
 }
 
@@ -147,7 +156,8 @@ function buildAmmoMap(mecha: MechaData): Record<string, number> {
 export function createBattleUnitsForNode(
   runPlayer: RunPlayerState,
   node: RunNodeData,
-  meta?: MetaProgressState
+  meta?: MetaProgressState,
+  threatLevel: number = 0
 ): BattleUnit[] {
   const playerDef =
     getUnitDefById(runPlayer.unitDefId) ?? getPlayableUnitDefs()[0];
@@ -156,6 +166,7 @@ export function createBattleUnitsForNode(
   const metaBonuses = meta
     ? getMetaBonuses(meta)
     : { hpBonus: 0, spBonus: 0, armorBonus: 0, unlockSupportMech: false };
+  const threatCfg = getThreatLevelConfig(threatLevel);
 
   const playerUnit: BattleUnit = {
     instanceId: playerDef.instanceId,
@@ -187,25 +198,42 @@ export function createBattleUnitsForNode(
 
   const alliedUnits: BattleUnit[] = [playerUnit];
 
-  // If Support Mech meta-upgrade is unlocked, deploy it alongside the main mecha!
+  // Deploy all allies in the player's squad (capped by combatConfig.support.maxSquadSize)
+  const allyIdsToDeploy = new Set<string>(runPlayer.squadAllyIds);
   if (metaBonuses.unlockSupportMech) {
-    const supportDef = getUnitDefById('ally_support_mech');
-    if (supportDef) {
+    allyIdsToDeploy.add('ally_support_mech');
+  }
+
+  const maxAllies = Math.max(0, combatConfig.support.maxSquadSize - 1);
+  const fallbackPositions = [
+    { row: 6, col: 0 },
+    { row: 6, col: 2 },
+  ];
+
+  Array.from(allyIdsToDeploy)
+    .slice(0, maxAllies)
+    .forEach((allyId, idx) => {
+      const allyDef = getUnitDefById(allyId);
+      if (!allyDef) return;
+      const spawnPos = allyDef.startPosition ?? fallbackPositions[idx] ?? {
+        row: 6,
+        col: 2,
+      };
       alliedUnits.push({
-        instanceId: supportDef.instanceId,
+        instanceId: allyDef.instanceId,
         faction: 'player',
         isMainUnit: false,
-        icon: supportDef.icon,
-        shortName: supportDef.shortName,
-        mecha: supportDef.mecha,
-        pilot: supportDef.pilot,
-        position: { ...supportDef.startPosition },
-        hp: supportDef.mecha.maxHp,
-        en: supportDef.mecha.maxEn,
-        sp: supportDef.pilot.maxSp,
+        icon: allyDef.icon,
+        shortName: allyDef.shortName,
+        mecha: allyDef.mecha,
+        pilot: allyDef.pilot,
+        position: { ...spawnPos },
+        hp: allyDef.mecha.maxHp,
+        en: allyDef.mecha.maxEn,
+        sp: allyDef.pilot.maxSp,
         will: combatConfig.will.initial,
         maxWill: combatConfig.will.max,
-        ammoByWeaponId: buildAmmoMap(supportDef.mecha),
+        ammoByWeaponId: buildAmmoMap(allyDef.mecha),
         hasMoved: false,
         hasActed: false,
         activeSpirits: {
@@ -215,14 +243,18 @@ export function createBattleUnitsForNode(
         },
         installedUpgradeIds: [],
       });
-    }
-  }
+    });
 
   const enemyUnits: BattleUnit[] = (node.enemySpawns ?? []).map(
     (spawn, idx) => {
       const template = getUnitDefById(spawn.templateId)!;
       const suffix = spawn.labelSuffix ? ` ${spawn.labelSuffix}` : '';
       const shortSuffix = spawn.labelSuffix ? `-${spawn.labelSuffix[0]}` : '';
+
+      const scaledMaxHp = Math.round(
+        template.mecha.maxHp * (1 + threatCfg.enemyHpBonusPercent / 100)
+      );
+      const scaledArmor = template.mecha.armor + threatCfg.enemyArmorBonus;
 
       return {
         instanceId: `${node.id}_${spawn.templateId}_${idx + 1}`,
@@ -233,13 +265,15 @@ export function createBattleUnitsForNode(
         mecha: {
           ...template.mecha,
           name: `${template.mecha.name}${suffix}`,
+          maxHp: scaledMaxHp,
+          armor: scaledArmor,
         },
         pilot: template.pilot,
         position: { ...spawn.position },
-        hp: template.mecha.maxHp,
+        hp: scaledMaxHp,
         en: template.mecha.maxEn,
         sp: template.pilot.maxSp,
-        will: combatConfig.will.initial,
+        will: threatCfg.enemyStartWill,
         maxWill: combatConfig.will.max,
         ammoByWeaponId: buildAmmoMap(template.mecha),
         hasMoved: false,
