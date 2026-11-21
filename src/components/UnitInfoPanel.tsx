@@ -58,7 +58,7 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
     Math.max(
       0,
       ((unit.will - combatConfig.will.initial) /
-        (combatConfig.will.max - combatConfig.will.initial)) *
+        Math.max(1, unit.maxWill - combatConfig.will.initial)) *
         100
     )
   );
@@ -151,7 +151,7 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
               )}
             </span>
             <span className="font-semibold text-amber-300">
-              {unit.will} / {combatConfig.will.max}
+              {unit.will} / {unit.maxWill}
             </span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-slate-950">

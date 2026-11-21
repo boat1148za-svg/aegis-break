@@ -1,3 +1,4 @@
+import { getUpgradeById, hasUpgrade } from './upgradeLogic';
 import type { BattleUnit, SpiritCommandData } from './types';
 
 export interface SpiritCastResult {
@@ -58,8 +59,19 @@ export function applySpiritCommand(
 ): SpiritCastResult {
   const nextSp = Math.max(0, caster.sp - spirit.spCost);
 
+  // Tactical Chip: Spirit Battery (+15 EN whenever casting a Spirit Command)
+  let spiritBatteryGain = 0;
+  if (hasUpgrade(caster.installedUpgradeIds, 'spirit_battery')) {
+    const chip = getUpgradeById('spirit_battery');
+    const enRegen = chip?.effects.spiritEnRegen ?? 0;
+    const nextEnVal = Math.min(caster.mecha.maxEn, caster.en + enRegen);
+    spiritBatteryGain = nextEnVal - caster.en;
+  }
+  const nextEn = caster.en + spiritBatteryGain;
+  const batteryNote =
+    spiritBatteryGain > 0 ? ` [✨ Spirit Battery +${spiritBatteryGain} EN]` : '';
+
   if (spirit.id === 'trust') {
-    // Pick the allied unit with the lowest HP ratio (includes caster if solo)
     const allies = allUnits
       .filter((u) => u.faction === caster.faction && u.hp > 0)
       .sort((a, b) => a.hp / a.mecha.maxHp - b.hp / b.mecha.maxHp);
@@ -72,7 +84,7 @@ export function applySpiritCommand(
     const updatedUnits = allUnits.map((u) => {
       let nextUnit = u;
       if (u.instanceId === caster.instanceId) {
-        nextUnit = { ...nextUnit, sp: nextSp };
+        nextUnit = { ...nextUnit, sp: nextSp, en: nextEn };
       }
       if (u.instanceId === target.instanceId) {
         nextUnit = { ...nextUnit, hp: nextHp };
@@ -82,7 +94,7 @@ export function applySpiritCommand(
 
     return {
       updatedUnits,
-      logMessage: `${spirit.icon ?? '💚'} ${caster.pilot.name} ใช้ ${spirit.name} (${spirit.nameTh}) [-${spirit.spCost} SP] ฟื้นฟู ${target.mecha.name} +${actualHeal.toLocaleString()} HP`,
+      logMessage: `${spirit.icon ?? '💚'} ${caster.pilot.name} ใช้ ${spirit.name} (${spirit.nameTh}) [-${spirit.spCost} SP] ฟื้นฟู ${target.mecha.name} +${actualHeal.toLocaleString()} HP${batteryNote}`,
       popup: {
         position: { ...target.position },
         text: `+${actualHeal.toLocaleString()} HP`,
@@ -96,6 +108,7 @@ export function applySpiritCommand(
     return {
       ...u,
       sp: nextSp,
+      en: nextEn,
       activeSpirits: {
         ...u.activeSpirits,
         valor: spirit.id === 'valor' ? true : u.activeSpirits.valor,
@@ -107,6 +120,14 @@ export function applySpiritCommand(
 
   return {
     updatedUnits,
-    logMessage: `${spirit.icon ?? '✨'} ${caster.pilot.name} ใช้ ${spirit.name} (${spirit.nameTh}) [-${spirit.spCost} SP] — ${spirit.description}`,
+    logMessage: `${spirit.icon ?? '✨'} ${caster.pilot.name} ใช้ ${spirit.name} (${spirit.nameTh}) [-${spirit.spCost} SP] — ${spirit.description}${batteryNote}`,
+    popup:
+      spiritBatteryGain > 0
+        ? {
+            position: { ...caster.position },
+            text: `+${spiritBatteryGain} EN`,
+            variant: 'heal',
+          }
+        : undefined,
   };
 }

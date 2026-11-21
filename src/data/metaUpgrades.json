@@ -1,0 +1,62 @@
+{
+  "storageKey": "aegis_break_meta_v1",
+  "rewards": {
+    "shardsPerClearedNode": 50,
+    "bossClearBonus": 200,
+    "defeatConsolationShards": 25
+  },
+  "upgrades": [
+    {
+      "id": "meta_hp_boost",
+      "name": "Reinforced Hull",
+      "nameTh": "โครงสร้างเกราะถาวร",
+      "icon": "❤️",
+      "description": "เพิ่ม Max HP เริ่มต้นถาวร +500 หน่วยต่อเลเวล",
+      "maxLevel": 5,
+      "baseCost": 50,
+      "costStep": 30,
+      "effectPerLevel": {
+        "hpBonus": 500
+      }
+    },
+    {
+      "id": "meta_sp_boost",
+      "name": "Neural Sync",
+      "nameTh": "ระบบซิงโครไนซ์พลังจิต",
+      "icon": "✨",
+      "description": "เพิ่ม Max SP เริ่มต้นถาวร +10 หน่วยต่อเลเวล",
+      "maxLevel": 5,
+      "baseCost": 50,
+      "costStep": 30,
+      "effectPerLevel": {
+        "spBonus": 10
+      }
+    },
+    {
+      "id": "meta_armor_boost",
+      "name": "Aegis Alloy Coating",
+      "nameTh": "เคลือบเกราะโลหะผสม",
+      "icon": "🛡️",
+      "description": "เพิ่มค่าเกราะ Armor เริ่มต้นถาวร +100 หน่วยต่อเลเวล",
+      "maxLevel": 3,
+      "baseCost": 70,
+      "costStep": 40,
+      "effectPerLevel": {
+        "armorBonus": 100
+      }
+    },
+    {
+      "id": "meta_unlock_support",
+      "name": "Support Mech Wingman",
+      "nameTh": "ปลดล็อกหุ่นลูกทีม Support Mech",
+      "icon": "🤖",
+      "description": "ปลดล็อกหุ่นลูกทีม 'Support Mech' (มีสกิล Trust ฮีลเพื่อนและยิงสนับสนุน) ออกรบเคียงข้างตั้งแต่เริ่มรอบ",
+      "maxLevel": 1,
+      "baseCost": 100,
+      "costStep": 0,
+      "effectPerLevel": {
+        "unlockSupportMech": true
+      }
+    }
+  ]
+}

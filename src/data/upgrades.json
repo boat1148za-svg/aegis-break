@@ -1,0 +1,159 @@
+[
+  {
+    "id": "titanium_frame",
+    "name": "Titanium Frame",
+    "nameTh": "โครงเกราะไทเทเนียม",
+    "category": "power_parts",
+    "categoryLabel": "Power Part",
+    "icon": "❤️",
+    "unique": false,
+    "description": "เพิ่ม Max HP +1,500 และฟื้นฟู HP ทันที +1,500",
+    "effects": {
+      "maxHpBonus": 1500
+    }
+  },
+  {
+    "id": "solar_capacitor",
+    "name": "Solar Capacitor",
+    "nameTh": "ตัวเก็บประจุโซลาร์",
+    "category": "power_parts",
+    "categoryLabel": "Power Part",
+    "icon": "🔋",
+    "unique": false,
+    "description": "เพิ่ม Max EN +40 และฟื้นฟู EN ทันที +40",
+    "effects": {
+      "maxEnBonus": 40
+    }
+  },
+  {
+    "id": "reactive_plating",
+    "name": "Reactive Plating",
+    "nameTh": "แผ่นเกราะปฏิกิริยา",
+    "category": "power_parts",
+    "categoryLabel": "Power Part",
+    "icon": "🛡️",
+    "unique": false,
+    "description": "เพิ่มค่าเกราะ Armor +150 หน่วย",
+    "effects": {
+      "armorBonus": 150
+    }
+  },
+  {
+    "id": "apogee_thrusters",
+    "name": "Apogee Thrusters",
+    "nameTh": "ทรัสเตอร์ความเร็วสูง",
+    "category": "power_parts",
+    "categoryLabel": "Power Part",
+    "icon": "💨",
+    "unique": false,
+    "description": "เพิ่มความคล่องตัว Mobility +20 หน่วย (หลบหลีกเก่งขึ้น)",
+    "effects": {
+      "mobilityBonus": 20
+    }
+  },
+  {
+    "id": "booster_module",
+    "name": "High-Output Booster",
+    "nameTh": "บูสเตอร์เร่งระยะเดิน",
+    "category": "power_parts",
+    "categoryLabel": "Power Part",
+    "icon": "🚀",
+    "unique": false,
+    "description": "เพิ่มระยะการเดิน Move +1 ช่อง",
+    "effects": {
+      "moveBonus": 1
+    }
+  },
+  {
+    "id": "weapon_overclock",
+    "name": "Weapon Overclock",
+    "nameTh": "โอเวอร์คล็อกอาวุธ",
+    "category": "weapon_tech",
+    "categoryLabel": "Weapon Tech",
+    "icon": "⚔️",
+    "unique": false,
+    "description": "เพิ่มพลังโจมตีอาวุธทุกชนิด +300 Power",
+    "effects": {
+      "weaponPowerBonus": 300
+    }
+  },
+  {
+    "id": "finisher_condenser",
+    "name": "Finisher Condenser",
+    "nameTh": "คอนเดนเซอร์ท่าไม้ตาย",
+    "category": "weapon_tech",
+    "categoryLabel": "Weapon Tech",
+    "icon": "⚡",
+    "unique": false,
+    "description": "ลดค่า EN ที่ใช้ของท่าไม้ตาย (Will 120+) ลง 25%",
+    "effects": {
+      "finisherEnDiscountPercent": 25
+    }
+  },
+  {
+    "id": "precision_fcs",
+    "name": "Precision FCS",
+    "nameTh": "ระบบเล็งเป้าหมายขั้นสูง",
+    "category": "weapon_tech",
+    "categoryLabel": "Weapon Tech",
+    "icon": "🎯",
+    "unique": false,
+    "description": "เพิ่มความแม่นยำอาวุธทุกชนิด +15 Accuracy",
+    "effects": {
+      "weaponAccuracyBonus": 15
+    }
+  },
+  {
+    "id": "spirit_battery",
+    "name": "Spirit Battery",
+    "nameTh": "แบตเตอรี่พลังจิต",
+    "category": "tactical_chips",
+    "categoryLabel": "Tactical Chip",
+    "icon": "✨",
+    "unique": true,
+    "description": "ทุกครั้งที่กดใช้ Spirit Command จะฟื้นฟู EN 15 หน่วยทันที",
+    "effects": {
+      "spiritEnRegen": 15
+    }
+  },
+  {
+    "id": "hot_blooded_core",
+    "name": "Hot-Blooded Core",
+    "nameTh": "แกนพลังงานเลือดเดือด",
+    "category": "tactical_chips",
+    "categoryLabel": "Tactical Chip",
+    "icon": "🔥",
+    "unique": true,
+    "description": "เมื่อค่า Will ถึง 120 ขึ้นไป ดาเมจทั้งหมดจะแรงขึ้น 25%",
+    "effects": {
+      "willThreshold": 120,
+      "hotBloodedDamagePercent": 25
+    }
+  },
+  {
+    "id": "vampire_reactor",
+    "name": "Vampire Reactor",
+    "nameTh": "เตาปฏิกรณ์ดูดซับพลัง",
+    "category": "tactical_chips",
+    "categoryLabel": "Tactical Chip",
+    "icon": "🩸",
+    "unique": true,
+    "description": "เมื่อทำลายศัตรูได้ ฟื้นฟู HP ทันที 20% ของ Max HP",
+    "effects": {
+      "vampireHealPercent": 20
+    }
+  },
+  {
+    "id": "counter_master",
+    "name": "Counter Master",
+    "nameTh": "ชิปจ้าวแห่งการสวนกลับ",
+    "category": "tactical_chips",
+    "categoryLabel": "Tactical Chip",
+    "icon": "↩️",
+    "unique": true,
+    "description": "เมื่อเลือกคำสั่ง Counter (สวนกลับ) ดาเมจสวนกลับจะแรงขึ้น 30%",
+    "effects": {
+      "counterDamagePercent": 30
+    }
+  }
+]

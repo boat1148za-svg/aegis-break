@@ -4,6 +4,7 @@ import {
   getTerrainById,
 } from './dataLoader';
 import { findBestWeaponInRange } from './gridLogic';
+import { getUpgradeById, hasUpgrade } from './upgradeLogic';
 import type {
   BattleForecast,
   BattleUnit,
@@ -55,7 +56,8 @@ export function calculateDamage(
   attacker: BattleUnit,
   defender: BattleUnit,
   weapon: WeaponData,
-  defenseAction: DefenseAction = 'counter'
+  defenseAction: DefenseAction = 'counter',
+  isCounterAttack: boolean = false
 ): { baseDamage: number; finalDamage: number } {
   const pilotStat =
     weapon.type === 'melee' ? attacker.pilot.melee : attacker.pilot.ranged;
@@ -75,6 +77,27 @@ export function calculateDamage(
     ? (ironWallSpirit?.effects.damageTakenMultiplier ?? 1)
     : 1;
 
+  // Tactical Chip: Hot-Blooded Core (+25% damage when Will >= 120)
+  let chipMultiplier = 1;
+  if (hasUpgrade(attacker.installedUpgradeIds, 'hot_blooded_core')) {
+    const hotCore = getUpgradeById('hot_blooded_core');
+    const threshold = hotCore?.effects.willThreshold ?? 120;
+    const bonusPct = hotCore?.effects.hotBloodedDamagePercent ?? 0;
+    if (attacker.will >= threshold) {
+      chipMultiplier *= 1 + bonusPct / 100;
+    }
+  }
+
+  // Tactical Chip: Counter Master (+30% damage when executing a Counter-Attack)
+  if (
+    isCounterAttack &&
+    hasUpgrade(attacker.installedUpgradeIds, 'counter_master')
+  ) {
+    const counterChip = getUpgradeById('counter_master');
+    const bonusPct = counterChip?.effects.counterDamagePercent ?? 0;
+    chipMultiplier *= 1 + bonusPct / 100;
+  }
+
   const spiritMultiplier = attackerSpiritMult * defenderSpiritMult;
   const actionMultiplier =
     combatConfig.defenseActions[defenseAction].damageTakenMultiplier;
@@ -82,7 +105,10 @@ export function calculateDamage(
   const finalDamage = Math.round(
     Math.max(
       combatConfig.damage.min,
-      (baseDamage - defender.mecha.armor) * spiritMultiplier * actionMultiplier
+      (baseDamage - defender.mecha.armor) *
+        spiritMultiplier *
+        actionMultiplier *
+        chipMultiplier
     )
   );
 
@@ -97,7 +123,8 @@ export function previewCombat(
   defender: BattleUnit,
   weapon: WeaponData,
   defenderTerrain: TerrainConfig,
-  defenseAction: DefenseAction = 'counter'
+  defenseAction: DefenseAction = 'counter',
+  isCounterAttack: boolean = false
 ): CombatPreview {
   const hitRate = calculateHitRate(
     attacker,
@@ -110,7 +137,8 @@ export function previewCombat(
     attacker,
     defender,
     weapon,
-    defenseAction
+    defenseAction,
+    isCounterAttack
   );
 
   return { hitRate, baseDamage, finalDamage };
@@ -200,7 +228,8 @@ export function buildCounterPrompt(
         enemy,
         playerCounterWeapon,
         enemyTerrain,
-        'counter'
+        'counter',
+        true
       )
     : null;
 
@@ -222,14 +251,16 @@ export function resolveAttackStrike(
   weapon: WeaponData,
   defenderTerrain: TerrainConfig,
   defenseAction: DefenseAction = 'counter',
-  randomValue: number = Math.random()
+  randomValue: number = Math.random(),
+  isCounterAttack: boolean = false
 ): StrikeResolution {
   const preview = previewCombat(
     attacker,
     defender,
     weapon,
     defenderTerrain,
-    defenseAction
+    defenseAction,
+    isCounterAttack
   );
 
   const roll = Math.floor(randomValue * 100) + 1;
@@ -248,22 +279,28 @@ export function resolveAttackStrike(
     (destroyed ? combatConfig.will.onDestroyEnemy : 0);
 
   const nextAttackerWill = Math.min(
-    combatConfig.will.max,
+    attacker.maxWill,
     attacker.will + attackerWillGain
   );
 
   const nextDefenderWill = hit
-    ? Math.min(
-        combatConfig.will.max,
-        defender.will + combatConfig.will.onHitTaken
-      )
-    : Math.min(
-        combatConfig.will.max,
-        defender.will + combatConfig.will.onEvade
-      );
+    ? Math.min(defender.maxWill, defender.will + combatConfig.will.onHitTaken)
+    : Math.min(defender.maxWill, defender.will + combatConfig.will.onEvade);
+
+  // Tactical Chip: Vampire Reactor (heal 20% Max HP when destroying an enemy)
+  let nextAttackerHp = attacker.hp;
+  let vampireHealed = 0;
+  if (destroyed && hasUpgrade(attacker.installedUpgradeIds, 'vampire_reactor')) {
+    const vampChip = getUpgradeById('vampire_reactor');
+    const healPct = vampChip?.effects.vampireHealPercent ?? 0;
+    const rawHeal = Math.round((attacker.mecha.maxHp * healPct) / 100);
+    nextAttackerHp = Math.min(attacker.mecha.maxHp, attacker.hp + rawHeal);
+    vampireHealed = nextAttackerHp - attacker.hp;
+  }
 
   const updatedAttacker: BattleUnit = {
     ...attacker,
+    hp: nextAttackerHp,
     en: Math.max(0, attacker.en - weapon.enCost),
     ammoByWeaponId: nextAmmo,
     will: nextAttackerWill,
@@ -287,5 +324,6 @@ export function resolveAttackStrike(
     destroyed,
     hitRate: preview.hitRate,
     roll,
+    vampireHealed,
   };
 }

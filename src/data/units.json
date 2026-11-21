@@ -2,6 +2,8 @@
   {
     "instanceId": "player_giga_rex",
     "faction": "player",
+    "archetype": "Super Robot",
+    "description": "หุ่นรบสายซูเปอร์โรบอท เกราะหนา พลังชีวิตสูง และอาวุธทำลายล้างรุนแรง เหมาะสำหรับยืนชนแนวหน้า",
     "icon": "🤖",
     "shortName": "G-REX",
     "startPosition": { "row": 6, "col": 1 },
@@ -67,16 +69,85 @@
     }
   },
   {
-    "instanceId": "enemy_sentinel_1",
+    "instanceId": "player_valkyrie_x",
+    "faction": "player",
+    "archetype": "Real Robot",
+    "description": "หุ่นรบสายเรียลโรบอท คล่องตัวสูง เดินไกล 6 ช่อง หลบหลีกและยิงแม่นยำเป็นเลิศ แต่เกราะบางต้องระวังการโดนโจมตีตรงๆ",
+    "icon": "🪽",
+    "shortName": "VLK-X",
+    "startPosition": { "row": 6, "col": 1 },
+    "mecha": {
+      "id": "valkyrie_x",
+      "name": "Valkyrie-X",
+      "faction": "player",
+      "maxHp": 3600,
+      "maxEn": 140,
+      "armor": 650,
+      "mobility": 80,
+      "move": 6,
+      "weaponIds": ["beam_saber", "twin_beam_rifle", "phantom_overdrive"],
+      "weapons": [
+        {
+          "id": "beam_saber",
+          "name": "Beam Saber",
+          "type": "melee",
+          "power": 1600,
+          "accuracy": 40,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "twin_beam_rifle",
+          "name": "Twin Beam Rifle",
+          "type": "ranged",
+          "power": 1750,
+          "accuracy": 35,
+          "minRange": 2,
+          "maxRange": 5,
+          "enCost": 10,
+          "ammo": 10,
+          "willRequired": 100
+        },
+        {
+          "id": "phantom_overdrive",
+          "name": "Phantom Overdrive",
+          "type": "ranged",
+          "power": 3300,
+          "accuracy": 35,
+          "minRange": 1,
+          "maxRange": 5,
+          "enCost": 35,
+          "ammo": null,
+          "willRequired": 120
+        }
+      ]
+    },
+    "pilot": {
+      "id": "pilot_elena",
+      "name": "Elena Vance",
+      "faction": "player",
+      "melee": 115,
+      "ranged": 140,
+      "accuracy": 180,
+      "evade": 95,
+      "maxSp": 85,
+      "spiritCommandIds": ["valor", "focus", "iron_wall", "trust"]
+    }
+  },
+  {
+    "instanceId": "enemy_sentinel",
     "faction": "enemy",
     "icon": "👾",
-    "shortName": "SNT-1",
+    "shortName": "SNT",
     "startPosition": { "row": 1, "col": 5 },
     "mecha": {
       "id": "sentinel_mk1",
-      "name": "Iron Sentinel A",
+      "name": "Iron Sentinel",
       "faction": "enemy",
-      "maxHp": 3200,
+      "maxHp": 3000,
       "maxEn": 80,
       "armor": 700,
       "mobility": 30,
@@ -99,7 +170,7 @@
           "id": "plasma_blade",
           "name": "Plasma Blade",
           "type": "melee",
-          "power": 1800,
+          "power": 1750,
           "accuracy": 25,
           "minRange": 1,
           "maxRange": 1,
@@ -122,16 +193,16 @@
     }
   },
   {
-    "instanceId": "enemy_sentinel_2",
+    "instanceId": "enemy_viper",
     "faction": "enemy",
     "icon": "🛸",
-    "shortName": "VPR-2",
+    "shortName": "VPR",
     "startPosition": { "row": 2, "col": 6 },
     "mecha": {
       "id": "viper_scout",
-      "name": "Viper Scout B",
+      "name": "Viper Scout",
       "faction": "enemy",
-      "maxHp": 2600,
+      "maxHp": 2500,
       "maxEn": 90,
       "armor": 550,
       "mobility": 45,
@@ -160,6 +231,174 @@
       "ranged": 105,
       "accuracy": 150,
       "evade": 70,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  },
+  {
+    "instanceId": "enemy_commander",
+    "faction": "enemy",
+    "icon": "⚔️",
+    "shortName": "CMD",
+    "startPosition": { "row": 1, "col": 6 },
+    "mecha": {
+      "id": "crimson_commander",
+      "name": "Crimson Commander",
+      "faction": "enemy",
+      "maxHp": 5400,
+      "maxEn": 120,
+      "armor": 950,
+      "mobility": 50,
+      "move": 4,
+      "weaponIds": ["heavy_railgun", "crimson_edge"],
+      "weapons": [
+        {
+          "id": "heavy_railgun",
+          "name": "Heavy Railgun",
+          "type": "ranged",
+          "power": 1950,
+          "accuracy": 25,
+          "minRange": 2,
+          "maxRange": 4,
+          "enCost": 10,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "crimson_edge",
+          "name": "Crimson Edge",
+          "type": "melee",
+          "power": 2200,
+          "accuracy": 30,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 10,
+          "ammo": null,
+          "willRequired": 100
+        }
+      ]
+    },
+    "pilot": {
+      "id": "ai_commander",
+      "name": "Squad Leader Vex",
+      "faction": "enemy",
+      "melee": 115,
+      "ranged": 115,
+      "accuracy": 160,
+      "evade": 75,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  },
+  {
+    "instanceId": "ally_support_mech",
+    "faction": "player",
+    "isSupportAlly": true,
+    "archetype": "Support Unit",
+    "description": "หุ่นสนับสนุนที่ปลดล็อกผ่าน Meta-Upgrades มีคำสั่งจิตใจ Trust สำหรับซ่อมแซมหุ่นหลักและยิงสนับสนุนระยะไกล",
+    "icon": "🩺",
+    "shortName": "SUP-1",
+    "startPosition": { "row": 6, "col": 2 },
+    "mecha": {
+      "id": "support_mech",
+      "name": "Support Mech",
+      "faction": "player",
+      "maxHp": 3400,
+      "maxEn": 120,
+      "armor": 800,
+      "mobility": 45,
+      "move": 5,
+      "weaponIds": ["support_beam", "pulse_knife"],
+      "weapons": [
+        {
+          "id": "support_beam",
+          "name": "Support Beam Rifle",
+          "type": "ranged",
+          "power": 1350,
+          "accuracy": 35,
+          "minRange": 2,
+          "maxRange": 4,
+          "enCost": 10,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "pulse_knife",
+          "name": "Pulse Knife",
+          "type": "melee",
+          "power": 1200,
+          "accuracy": 35,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        }
+      ]
+    },
+    "pilot": {
+      "id": "pilot_kai",
+      "name": "Kai Sato",
+      "faction": "player",
+      "melee": 105,
+      "ranged": 115,
+      "accuracy": 165,
+      "evade": 70,
+      "maxSp": 75,
+      "spiritCommandIds": ["trust", "focus", "iron_wall"]
+    }
+  },
+  {
+    "instanceId": "enemy_boss_dreadnought",
+    "faction": "enemy",
+    "icon": "👹",
+    "shortName": "OVRLD",
+    "startPosition": { "row": 1, "col": 5 },
+    "mecha": {
+      "id": "overlord_dreadnought",
+      "name": "Overlord Dreadnought",
+      "faction": "enemy",
+      "maxHp": 12000,
+      "maxEn": 240,
+      "armor": 1350,
+      "mobility": 50,
+      "move": 4,
+      "weaponIds": ["dreadnought_annihilator", "titan_crusher"],
+      "weapons": [
+        {
+          "id": "dreadnought_annihilator",
+          "name": "Dreadnought Annihilator",
+          "type": "ranged",
+          "power": 2700,
+          "accuracy": 25,
+          "minRange": 2,
+          "maxRange": 5,
+          "enCost": 15,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "titan_crusher",
+          "name": "Titan Crusher",
+          "type": "melee",
+          "power": 3000,
+          "accuracy": 30,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 15,
+          "ammo": null,
+          "willRequired": 100
+        }
+      ]
+    },
+    "pilot": {
+      "id": "ai_boss_overlord",
+      "name": "Overlord Prime",
+      "faction": "enemy",
+      "melee": 130,
+      "ranged": 130,
+      "accuracy": 165,
+      "evade": 75,
       "maxSp": 0,
       "spiritCommandIds": []
     }

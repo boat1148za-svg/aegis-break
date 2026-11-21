@@ -1,0 +1,92 @@
+[
+  {
+    "id": "node_1",
+    "nodeNumber": 1,
+    "title": "Outpost Perimeter",
+    "type": "standard_battle",
+    "typeLabel": "Standard Battle",
+    "description": "แนวป้องกันชั้นนอก ศัตรูลาดตระเวน 2 ตัว",
+    "enemySpawns": [
+      { "templateId": "enemy_sentinel", "labelSuffix": "A", "position": { "row": 1, "col": 5 } },
+      { "templateId": "enemy_viper", "labelSuffix": "B", "position": { "row": 2, "col": 6 } }
+    ]
+  },
+  {
+    "id": "node_2",
+    "nodeNumber": 2,
+    "title": "Industrial Corridor",
+    "type": "standard_battle",
+    "typeLabel": "Standard Battle",
+    "description": "เขตรอยต่อโรงงาน ฝูงศัตรู 3 ตัวดักซุ่มอยู่",
+    "enemySpawns": [
+      { "templateId": "enemy_sentinel", "labelSuffix": "A", "position": { "row": 1, "col": 4 } },
+      { "templateId": "enemy_viper", "labelSuffix": "B", "position": { "row": 1, "col": 6 } },
+      { "templateId": "enemy_viper", "labelSuffix": "C", "position": { "row": 3, "col": 6 } }
+    ]
+  },
+  {
+    "id": "node_3",
+    "nodeNumber": 3,
+    "title": "Field Repair Bay",
+    "type": "repair_event",
+    "typeLabel": "Repair & Event",
+    "description": "จุดซ่อมบำรุงกลางสนามรบ เลือกฟื้นฟูหุ่นหรือฝึกซ้อมปลุกกำลังใจ",
+    "eventConfig": {
+      "repairHpPercent": 50,
+      "repairEnPercent": 50,
+      "trainMaxWillBonus": 10
+    }
+  },
+  {
+    "id": "node_4",
+    "nodeNumber": 4,
+    "title": "Vanguard Checkpoint",
+    "type": "elite_battle",
+    "typeLabel": "Elite Battle",
+    "description": "ด่านสกัดกั้นระดับหัวหน้าหน่วย 1 ตัว พร้อมลูกน้อง 2 ตัว",
+    "enemySpawns": [
+      { "templateId": "enemy_commander", "labelSuffix": "", "position": { "row": 1, "col": 5 } },
+      { "templateId": "enemy_sentinel", "labelSuffix": "A", "position": { "row": 2, "col": 3 } },
+      { "templateId": "enemy_viper", "labelSuffix": "B", "position": { "row": 3, "col": 6 } }
+    ]
+  },
+  {
+    "id": "node_5",
+    "nodeNumber": 5,
+    "title": "Forward Supply Depot",
+    "type": "repair_supply",
+    "typeLabel": "Repair & Supply",
+    "description": "คลังเสบียงแนวหน้า ซ่อมแซม HP/EN และฟื้นฟู SP เต็ม 100%",
+    "eventConfig": {
+      "repairHpPercent": 100,
+      "repairEnPercent": 100,
+      "restoreSpPercent": 100
+    }
+  },
+  {
+    "id": "node_6",
+    "nodeNumber": 6,
+    "title": "Citadel Outer Ring",
+    "type": "hard_battle",
+    "typeLabel": "Hard Battle",
+    "description": "แนวป้องกันชั้นใน กองกำลังศัตรู 4 ตัวเข้าล้อมกรอบ",
+    "enemySpawns": [
+      { "templateId": "enemy_commander", "labelSuffix": "", "position": { "row": 1, "col": 5 } },
+      { "templateId": "enemy_sentinel", "labelSuffix": "A", "position": { "row": 0, "col": 3 } },
+      { "templateId": "enemy_sentinel", "labelSuffix": "B", "position": { "row": 3, "col": 6 } },
+      { "templateId": "enemy_viper", "labelSuffix": "C", "position": { "row": 4, "col": 6 } }
+    ]
+  },
+  {
+    "id": "node_7",
+    "nodeNumber": 7,
+    "title": "Aegis Core Chamber",
+    "type": "boss_battle",
+    "typeLabel": "Boss Battle",
+    "description": "ห้องแกนกลาง — ปะทะบอสใหญ่ Overlord Dreadnought (HP 12,000)!",
+    "enemySpawns": [
+      { "templateId": "enemy_boss_dreadnought", "labelSuffix": "", "position": { "row": 1, "col": 5 } },
+      { "templateId": "enemy_viper", "labelSuffix": "Guard", "position": { "row": 2, "col": 3 } }
+    ]
+  }
+]

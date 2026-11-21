@@ -102,11 +102,132 @@ export interface PilotData {
 export interface UnitDefinition {
   instanceId: string;
   faction: Faction;
+  isSupportAlly?: boolean;
+  archetype?: string;
+  description?: string;
   icon: string;
   shortName: string;
   startPosition: GridPosition;
   mecha: MechaData;
   pilot: PilotData;
+}
+
+export type ScreenView = 'HANGAR' | 'NODE_MAP' | 'BATTLE' | 'EVENT' | 'RUN_END';
+
+export interface MetaUpgradeEffect {
+  hpBonus?: number;
+  spBonus?: number;
+  armorBonus?: number;
+  unlockSupportMech?: boolean;
+}
+
+export interface MetaUpgradeData {
+  id: string;
+  name: string;
+  nameTh: string;
+  icon: string;
+  description: string;
+  maxLevel: number;
+  baseCost: number;
+  costStep: number;
+  effectPerLevel: MetaUpgradeEffect;
+}
+
+export interface MetaProgressState {
+  astralShards: number;
+  upgradeLevels: Record<string, number>;
+  totalRuns: number;
+  victories: number;
+}
+
+export interface MetaBonuses {
+  hpBonus: number;
+  spBonus: number;
+  armorBonus: number;
+  unlockSupportMech: boolean;
+}
+
+export interface RunSummaryData {
+  outcome: 'victory' | 'defeat';
+  unitDefId: string;
+  nodesCleared: number;
+  totalNodes: number;
+  installedUpgradeCount: number;
+  shardsFromNodes: number;
+  bonusShards: number;
+  totalShardsEarned: number;
+  newTotalShards: number;
+}
+
+export type NodeType =
+  | 'standard_battle'
+  | 'repair_event'
+  | 'elite_battle'
+  | 'repair_supply'
+  | 'hard_battle'
+  | 'boss_battle';
+
+export interface EnemySpawnConfig {
+  templateId: string;
+  labelSuffix: string;
+  position: GridPosition;
+}
+
+export interface NodeEventConfig {
+  repairHpPercent?: number;
+  repairEnPercent?: number;
+  restoreSpPercent?: number;
+  trainMaxWillBonus?: number;
+}
+
+export interface RunNodeData {
+  id: string;
+  nodeNumber: number;
+  title: string;
+  type: NodeType;
+  typeLabel: string;
+  description: string;
+  enemySpawns?: EnemySpawnConfig[];
+  eventConfig?: NodeEventConfig;
+}
+
+export type UpgradeCategory = 'power_parts' | 'weapon_tech' | 'tactical_chips';
+
+export interface UpgradeEffects {
+  maxHpBonus?: number;
+  maxEnBonus?: number;
+  armorBonus?: number;
+  mobilityBonus?: number;
+  moveBonus?: number;
+  weaponPowerBonus?: number;
+  weaponAccuracyBonus?: number;
+  finisherEnDiscountPercent?: number;
+  spiritEnRegen?: number;
+  willThreshold?: number;
+  hotBloodedDamagePercent?: number;
+  vampireHealPercent?: number;
+  counterDamagePercent?: number;
+}
+
+export interface UpgradeCardData {
+  id: string;
+  name: string;
+  nameTh: string;
+  category: UpgradeCategory;
+  categoryLabel: string;
+  icon: string;
+  unique: boolean;
+  description: string;
+  effects: UpgradeEffects;
+}
+
+export interface RunPlayerState {
+  unitDefId: string;
+  hp: number;
+  en: number;
+  sp: number;
+  maxWillBonus: number;
+  installedUpgradeIds: string[];
 }
 
 export interface ActiveSpirits {
@@ -118,6 +239,7 @@ export interface ActiveSpirits {
 export interface BattleUnit {
   instanceId: string;
   faction: Faction;
+  isMainUnit?: boolean;
   icon: string;
   shortName: string;
   mecha: MechaData;
@@ -127,10 +249,12 @@ export interface BattleUnit {
   en: number;
   sp: number;
   will: number;
+  maxWill: number;
   ammoByWeaponId: Record<string, number>;
   hasMoved: boolean;
   hasActed: boolean;
   activeSpirits: ActiveSpirits;
+  installedUpgradeIds: string[];
 }
 
 export interface CombatPreview {
@@ -169,6 +293,7 @@ export interface StrikeResolution {
   destroyed: boolean;
   hitRate: number;
   roll: number;
+  vampireHealed: number;
 }
 
 export interface FloatingTextEvent {
