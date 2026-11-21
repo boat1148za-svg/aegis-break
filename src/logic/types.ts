@@ -53,6 +53,26 @@ export interface WeaponData {
   ammo: number | null;
   willRequired: number;
   armorBreakAmount?: number;
+  armorPiercePercent?: number;
+  mobilityDebuffAmount?: number;
+  critBonus?: number;
+  knockback?: number;
+  is_map_weapon?: boolean;
+  mapLength?: number;
+  allowed_mechas?: string[];
+  signatureMechaName?: string;
+  description?: string;
+}
+
+export type CardinalDirection = 'up' | 'down' | 'left' | 'right';
+
+export interface DangerZoneState {
+  id: string;
+  casterId: string;
+  casterName: string;
+  weapon: WeaponData;
+  row: number;
+  tiles: GridPosition[];
 }
 
 export interface RepairSkillData {
@@ -95,6 +115,8 @@ export interface MechaData {
   weaponIds: string[];
   weapons?: WeaponData[];
   repairSkill?: RepairSkillData;
+  hasDangerZoneSkill?: boolean;
+  dangerZoneWeapon?: WeaponData;
 }
 
 export interface PilotData {
@@ -122,7 +144,13 @@ export interface UnitDefinition {
   pilot: PilotData;
 }
 
-export type ScreenView = 'HANGAR' | 'NODE_MAP' | 'BATTLE' | 'EVENT' | 'RUN_END';
+export type ScreenView =
+  | 'TITLE'
+  | 'HANGAR'
+  | 'NODE_MAP'
+  | 'BATTLE'
+  | 'EVENT'
+  | 'RUN_END';
 
 export interface MetaUpgradeEffect {
   hpBonus?: number;
@@ -249,6 +277,10 @@ export interface UpgradeCardData {
   effects: UpgradeEffects;
 }
 
+export type DraftChoice =
+  | { kind: 'upgrade'; card: UpgradeCardData }
+  | { kind: 'weapon'; weapon: WeaponData };
+
 export interface RunPlayerState {
   unitDefId: string;
   hp: number;
@@ -256,6 +288,7 @@ export interface RunPlayerState {
   sp: number;
   maxWillBonus: number;
   installedUpgradeIds: string[];
+  equippedWeapons: WeaponData[];
   squadAllyIds: string[];
 }
 
@@ -282,6 +315,13 @@ export interface BattleUnit {
   ammoByWeaponId: Record<string, number>;
   hasMoved: boolean;
   hasActed: boolean;
+  facing?: 'left' | 'right';
+  bossPhase2?: boolean;
+  stunned?: boolean;
+  momentumUsedThisTurn?: boolean;
+  momentumMoveLimit?: number | null;
+  overLimitActive?: boolean;
+  overLimitUsedThisTurn?: boolean;
   activeSpirits: ActiveSpirits;
   installedUpgradeIds: string[];
 }
@@ -364,13 +404,27 @@ export interface StrikeResolution {
   roll: number;
   vampireHealed: number;
   armorBroken: number;
+  mobilityDebuffed: number;
+}
+
+export interface KnockbackResult {
+  updatedUnits: BattleUnit[];
+  pushed: boolean;
+  finalPosition: GridPosition;
+  stepsMoved: number;
+  collided: boolean;
+  collisionType: 'none' | 'obstacle' | 'border' | 'unit';
+  collidedUnit: BattleUnit | null;
+  collisionDamage: number;
+  targetDestroyedByCollision: boolean;
+  collidedUnitDestroyed: boolean;
 }
 
 export interface FloatingTextEvent {
   id: string;
   position: GridPosition;
   text: string;
-  variant: 'damage' | 'miss' | 'heal' | 'destroyed';
+  variant: 'damage' | 'miss' | 'heal' | 'destroyed' | 'collision';
 }
 
 export interface TurnState {

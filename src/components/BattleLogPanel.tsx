@@ -4,9 +4,9 @@ interface BattleLogPanelProps {
 
 export function BattleLogPanel({ logs }: BattleLogPanelProps) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-      <h2 className="mb-2 text-xs font-semibold tracking-wider text-slate-400 uppercase">
-        Battle Log
+    <div className="hud-panel bg-slate-900/85 p-4 backdrop-blur-md">
+      <h2 className="mb-2 text-xs font-semibold tracking-wider text-cyan-400 uppercase">
+        Tactical Combat Log
       </h2>
       <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1 text-xs">
         {logs.map((entry, idx) => (

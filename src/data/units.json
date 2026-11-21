@@ -16,7 +16,7 @@
       "armor": 1100,
       "mobility": 40,
       "move": 4,
-      "weaponIds": ["plasma_blade", "rail_rifle", "astral_nova_breaker"],
+      "weaponIds": ["plasma_blade", "rail_rifle", "solar_wave_map", "astral_nova_breaker"],
       "weapons": [
         {
           "id": "plasma_blade",
@@ -28,7 +28,8 @@
           "maxRange": 1,
           "enCost": 5,
           "ammo": null,
-          "willRequired": 100
+          "willRequired": 100,
+          "knockback": 1
         },
         {
           "id": "rail_rifle",
@@ -43,6 +44,20 @@
           "willRequired": 100
         },
         {
+          "id": "solar_wave_map",
+          "name": "Solar Wave Cannon [MAP]",
+          "type": "ranged",
+          "power": 2100,
+          "accuracy": 30,
+          "minRange": 1,
+          "maxRange": 4,
+          "enCost": 35,
+          "ammo": null,
+          "willRequired": 100,
+          "is_map_weapon": true,
+          "mapLength": 4
+        },
+        {
           "id": "astral_nova_breaker",
           "name": "Astral Nova Breaker",
           "type": "ranged",
@@ -52,7 +67,8 @@
           "maxRange": 4,
           "enCost": 40,
           "ammo": null,
-          "willRequired": 120
+          "willRequired": 120,
+          "knockback": 2
         }
       ]
     },
@@ -85,7 +101,7 @@
       "armor": 650,
       "mobility": 80,
       "move": 6,
-      "weaponIds": ["beam_saber", "twin_beam_rifle", "phantom_overdrive"],
+      "weaponIds": ["beam_saber", "twin_beam_rifle", "photon_line_map", "phantom_overdrive"],
       "weapons": [
         {
           "id": "beam_saber",
@@ -112,6 +128,20 @@
           "willRequired": 100
         },
         {
+          "id": "photon_line_map",
+          "name": "Photon Line Barrage [MAP]",
+          "type": "ranged",
+          "power": 1950,
+          "accuracy": 35,
+          "minRange": 1,
+          "maxRange": 4,
+          "enCost": 30,
+          "ammo": null,
+          "willRequired": 100,
+          "is_map_weapon": true,
+          "mapLength": 4
+        },
+        {
           "id": "phantom_overdrive",
           "name": "Phantom Overdrive",
           "type": "ranged",
@@ -121,7 +151,8 @@
           "maxRange": 5,
           "enCost": 35,
           "ammo": null,
-          "willRequired": 120
+          "willRequired": 120,
+          "knockback": 1
         }
       ]
     },
@@ -250,6 +281,19 @@
       "armor": 950,
       "mobility": 50,
       "move": 4,
+      "hasDangerZoneSkill": true,
+      "dangerZoneWeapon": {
+        "id": "crimson_lance_charge",
+        "name": "Crimson Lance Overcharge",
+        "type": "ranged",
+        "power": 2500,
+        "accuracy": 40,
+        "minRange": 1,
+        "maxRange": 8,
+        "enCost": 0,
+        "ammo": null,
+        "willRequired": 100
+      },
       "weaponIds": ["heavy_railgun", "crimson_edge"],
       "weapons": [
         {
@@ -274,7 +318,8 @@
           "maxRange": 1,
           "enCost": 10,
           "ammo": null,
-          "willRequired": 100
+          "willRequired": 100,
+          "knockback": 1
         }
       ]
     },
@@ -429,6 +474,19 @@
       "armor": 1350,
       "mobility": 50,
       "move": 4,
+      "hasDangerZoneSkill": true,
+      "dangerZoneWeapon": {
+        "id": "dreadnought_cataclysm_ray",
+        "name": "Dreadnought Cataclysm Ray",
+        "type": "ranged",
+        "power": 3200,
+        "accuracy": 45,
+        "minRange": 1,
+        "maxRange": 8,
+        "enCost": 0,
+        "ammo": null,
+        "willRequired": 100
+      },
       "weaponIds": ["dreadnought_annihilator", "titan_crusher"],
       "weapons": [
         {
@@ -453,7 +511,8 @@
           "maxRange": 1,
           "enCost": 15,
           "ammo": null,
-          "willRequired": 100
+          "willRequired": 100,
+          "knockback": 2
         }
       ]
     },

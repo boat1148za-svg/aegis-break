@@ -2,6 +2,7 @@ import { isUnitInOverdrive } from '../logic/combatCalculator';
 import { combatConfig, getTerrainById } from '../logic/dataLoader';
 import { MechaSprite } from './MechaSprite';
 import { PilotPortrait } from './PilotPortrait';
+import { TrailingHpBar } from './TrailingHpBar';
 import type { BattleUnit, StageMapData } from '../logic/types';
 
 interface UnitInfoPanelProps {
@@ -14,9 +15,9 @@ const COL_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
   if (!unit) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
-        <h2 className="text-xs font-semibold tracking-wider text-slate-400 uppercase">
-          Unit Status
+      <div className="hud-panel bg-slate-900/85 p-4 backdrop-blur-md">
+        <h2 className="text-xs font-semibold tracking-wider text-cyan-400 uppercase">
+          COCKPIT TELEMETRY · UNIT STATUS
         </h2>
         <p className="mt-3 text-sm text-slate-400">
           คลิกที่หุ่น{' '}
@@ -34,6 +35,13 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
 
   const activeBuffBadges: Array<{ id: string; label: string; style: string }> =
     [];
+  if (unit.stunned) {
+    activeBuffBadges.push({
+      id: 'stunned',
+      label: '💫 STUNNED (ข้ามเทิร์นถัดไป)',
+      style: 'border-orange-400/80 bg-orange-500/25 text-orange-200',
+    });
+  }
   if (isUnitInOverdrive(unit)) {
     activeBuffBadges.push({
       id: 'overdrive',
@@ -76,7 +84,7 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
 
   return (
     <div
-      className="rounded-xl border border-slate-800 bg-slate-900/70 p-4"
+      className="hud-panel bg-slate-900/85 p-4 backdrop-blur-md"
       data-testid="unit-info-panel"
     >
       <div className="flex items-start justify-between gap-2">
@@ -138,12 +146,12 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
               {unit.hp} / {unit.mecha.maxHp}
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-950">
-            <div
-              className={`h-full transition-all duration-500 ease-out ${isPlayer ? 'bg-cyan-400' : 'bg-rose-400'}`}
-              style={{ width: `${(unit.hp / unit.mecha.maxHp) * 100}%` }}
-            />
-          </div>
+          <TrailingHpBar
+            current={unit.hp}
+            max={unit.mecha.maxHp}
+            barColorClass={isPlayer ? 'bg-cyan-400' : 'bg-rose-400'}
+            heightClass="h-2.5"
+          />
         </div>
 
         <div>

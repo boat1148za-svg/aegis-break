@@ -1,13 +1,21 @@
 import { getUnitWeapons } from '../logic/dataLoader';
 import { canUseWeapon, getManhattanDistance } from '../logic/gridLogic';
-import type { BattleUnit, WeaponData } from '../logic/types';
+import type {
+  BattleUnit,
+  CardinalDirection,
+  WeaponData,
+} from '../logic/types';
 
 interface WeaponMenuPanelProps {
   unit: BattleUnit;
   allUnits: BattleUnit[];
   selectedWeaponId: string | null;
+  mapDirection: CardinalDirection;
+  mapTargetCount: number;
   onSelectWeapon: (weapon: WeaponData) => void;
   onCancelWeapon: () => void;
+  onChangeMapDirection: (dir: CardinalDirection) => void;
+  onFireMapWeapon: () => void;
   onRepairAlly: (targetAlly: BattleUnit) => void;
   onWait: () => void;
 }
@@ -16,12 +24,18 @@ export function WeaponMenuPanel({
   unit,
   allUnits,
   selectedWeaponId,
+  mapDirection,
+  mapTargetCount,
   onSelectWeapon,
   onCancelWeapon,
+  onChangeMapDirection,
+  onFireMapWeapon,
   onRepairAlly,
   onWait,
 }: WeaponMenuPanelProps) {
   const unitWeapons = getUnitWeapons(unit);
+  const selectedWeaponObj = unitWeapons.find((w) => w.id === selectedWeaponId);
+  const isMapWeaponSelected = Boolean(selectedWeaponObj?.is_map_weapon);
   const repairSkill = unit.mecha.repairSkill;
   const adjacentWoundedAllies = repairSkill
     ? allUnits.filter(
@@ -36,7 +50,7 @@ export function WeaponMenuPanel({
 
   return (
     <div
-      className="rounded-xl border border-rose-500/35 bg-slate-900/90 p-4 shadow-lg"
+      className="hud-panel-rose bg-slate-900/90 p-4 backdrop-blur-md"
       data-testid="weapon-menu"
     >
       <div className="mb-3 flex items-center justify-between">
@@ -129,17 +143,92 @@ export function WeaponMenuPanel({
                     ARM -{weapon.armorBreakAmount}
                   </span>
                 )}
+                {weapon.armorPiercePercent && weapon.armorPiercePercent > 0 && (
+                  <span className="rounded bg-cyan-500/20 px-1 text-[10px] font-bold text-cyan-300">
+                    เจาะเกราะ {weapon.armorPiercePercent}%
+                  </span>
+                )}
+                {weapon.critBonus && weapon.critBonus > 0 && (
+                  <span className="rounded bg-amber-500/20 px-1 text-[10px] font-bold text-amber-300">
+                    CRIT +{weapon.critBonus}%
+                  </span>
+                )}
+                {weapon.mobilityDebuffAmount &&
+                  weapon.mobilityDebuffAmount > 0 && (
+                    <span className="rounded bg-teal-500/20 px-1 text-[10px] font-bold text-teal-300">
+                      MOB -{weapon.mobilityDebuffAmount}
+                    </span>
+                  )}
+                {weapon.knockback && weapon.knockback > 0 && (
+                  <span className="rounded bg-orange-500/25 px-1 text-[10px] font-bold text-orange-300">
+                    💥 KB {weapon.knockback}
+                  </span>
+                )}
+                {weapon.is_map_weapon && (
+                  <span className="rounded bg-fuchsia-500/25 px-1.5 text-[10px] font-bold text-fuchsia-200">
+                    🌟 MAP {weapon.mapLength ?? 4} ช่อง · ห้ามสวนกลับ
+                  </span>
+                )}
               </div>
 
               {!check.usable && check.reason && (
-                <div className="mt-1 text-[11px] font-medium text-rose-400">
-                  {check.reason}
+                <div
+                  className="mt-1.5 inline-block rounded border border-rose-500/40 bg-rose-950/70 px-2 py-0.5 text-[11px] font-bold text-rose-300"
+                  data-testid={`weapon-reason-${weapon.id}`}
+                >
+                  🔒 {check.reason}
                 </div>
               )}
             </button>
           );
         })}
       </div>
+
+      {/* MAP Weapon Direction & Fire Controls */}
+      {isMapWeaponSelected && selectedWeaponObj && (
+        <div
+          className="mt-3 rounded-lg border border-fuchsia-400/50 bg-fuchsia-950/30 p-3"
+          data-testid="map-weapon-controls"
+        >
+          <div className="text-xs font-bold text-fuchsia-200">
+            🌟 เลือกทิศทางยิง MAP Weapon (เส้นตรง {selectedWeaponObj.mapLength ?? 4}{' '}
+            ช่อง)
+          </div>
+          <div className="mt-2 grid grid-cols-4 gap-1.5 text-xs">
+            {(
+              [
+                { dir: 'up', label: '⬆️ ขึ้น' },
+                { dir: 'down', label: '⬇️ ลง' },
+                { dir: 'left', label: '⬅️ ซ้าย' },
+                { dir: 'right', label: '➡️ ขวา' },
+              ] as const
+            ).map(({ dir, label }) => (
+              <button
+                key={dir}
+                type="button"
+                data-testid={`map-dir-${dir}`}
+                onClick={() => onChangeMapDirection(dir)}
+                className={`cursor-pointer rounded border py-1.5 font-semibold transition ${
+                  mapDirection === dir
+                    ? 'border-fuchsia-300 bg-fuchsia-600 text-white'
+                    : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-fuchsia-400/60'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            data-testid="fire-map-weapon-btn"
+            onClick={onFireMapWeapon}
+            className="mt-2.5 w-full cursor-pointer rounded-lg bg-fuchsia-600 py-2 text-xs font-bold text-white shadow transition hover:bg-fuchsia-500"
+          >
+            🌟 ยิง {selectedWeaponObj.name} (โดน {mapTargetCount} ศัตรู ·
+            ห้ามสวนกลับ)
+          </button>
+        </div>
+      )}
 
       {/* Aegis-Medic Adjacent Repair Skill */}
       {repairSkill && (

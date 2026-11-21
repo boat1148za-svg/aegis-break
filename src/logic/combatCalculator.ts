@@ -37,11 +37,21 @@ export function isUnitInOverdrive(unit: BattleUnit): boolean {
   );
 }
 
-export function calculateCritRate(attacker: BattleUnit): number {
+export function calculateCritRate(
+  attacker: BattleUnit,
+  weapon?: WeaponData
+): number {
   const overdriveBonus = isUnitInOverdrive(attacker)
     ? combatConfig.overdrive.critRateBonus
     : 0;
-  return Math.round(clamp(combatConfig.critical.baseRate + overdriveBonus, 0, 100));
+  const weaponCritBonus = weapon?.critBonus ?? 0;
+  return Math.round(
+    clamp(
+      combatConfig.critical.baseRate + overdriveBonus + weaponCritBonus,
+      0,
+      100
+    )
+  );
 }
 
 export function calculateHitRate(
@@ -126,12 +136,18 @@ export function calculateDamage(
   const overdriveAttackMult = isUnitInOverdrive(attacker)
     ? 1 + combatConfig.overdrive.damageBonusPercent / 100
     : 1;
-  const effectiveDefenderArmor = isUnitInOverdrive(defender)
+  const armorAfterOverdrive = isUnitInOverdrive(defender)
     ? Math.round(
         defender.mecha.armor *
           (1 - combatConfig.overdrive.armorPenaltyPercent / 100)
       )
     : defender.mecha.armor;
+
+  // Armor-Piercing weapons ignore a % of defender's effective Armor
+  const piercePct = weapon.armorPiercePercent ?? 0;
+  const effectiveDefenderArmor = Math.round(
+    armorAfterOverdrive * (1 - piercePct / 100)
+  );
 
   const spiritMultiplier = attackerSpiritMult * defenderSpiritMult;
   const actionMultiplier =
@@ -171,7 +187,7 @@ export function previewCombat(
     defenderTerrain,
     defenseAction
   );
-  const critRate = calculateCritRate(attacker);
+  const critRate = calculateCritRate(attacker, weapon);
   const { baseDamage, finalDamage } = calculateDamage(
     attacker,
     defender,
@@ -463,15 +479,35 @@ export function resolveAttackStrike(
     vampireHealed = nextAttackerHp - attacker.hp;
   }
 
-  // Weapon Debuff: Armor Break (e.g., Aegis-Medic Corrosive Railgun)
+  // Weapon Debuff: Armor Break & Mobility Debuff (EMP Disruptor)
   let armorBroken = 0;
   let nextDefenderArmor = defender.mecha.armor;
-  if (hit && !destroyed && weapon.armorBreakAmount && weapon.armorBreakAmount > 0) {
+  if (
+    hit &&
+    !destroyed &&
+    weapon.armorBreakAmount &&
+    weapon.armorBreakAmount > 0
+  ) {
     nextDefenderArmor = Math.max(
       0,
       defender.mecha.armor - weapon.armorBreakAmount
     );
     armorBroken = defender.mecha.armor - nextDefenderArmor;
+  }
+
+  let mobilityDebuffed = 0;
+  let nextDefenderMobility = defender.mecha.mobility;
+  if (
+    hit &&
+    !destroyed &&
+    weapon.mobilityDebuffAmount &&
+    weapon.mobilityDebuffAmount > 0
+  ) {
+    nextDefenderMobility = Math.max(
+      0,
+      defender.mecha.mobility - weapon.mobilityDebuffAmount
+    );
+    mobilityDebuffed = defender.mecha.mobility - nextDefenderMobility;
   }
 
   const enCost = freeEn
@@ -497,8 +533,12 @@ export function resolveAttackStrike(
     hp: nextDefenderHp,
     will: nextDefenderWill,
     mecha:
-      armorBroken > 0
-        ? { ...defender.mecha, armor: nextDefenderArmor }
+      armorBroken > 0 || mobilityDebuffed > 0
+        ? {
+            ...defender.mecha,
+            armor: nextDefenderArmor,
+            mobility: nextDefenderMobility,
+          }
         : defender.mecha,
   };
 
@@ -513,5 +553,6 @@ export function resolveAttackStrike(
     roll,
     vampireHealed,
     armorBroken,
+    mobilityDebuffed,
   };
 }

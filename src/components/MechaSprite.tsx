@@ -1,7 +1,16 @@
+import { useEffect, useState } from 'react';
+import { getMechaSpriteUrl } from '../logic/assetMap';
+import type { UnitAnimationType } from '../logic/types';
+
 interface MechaSpriteProps {
   mechaId: string;
   faction?: 'player' | 'enemy';
   acted?: boolean;
+  facing?: 'left' | 'right';
+  bossPhase2?: boolean;
+  animation?: UnitAnimationType;
+  showShadow?: boolean;
+  enableIdle?: boolean;
   className?: string;
 }
 
@@ -9,13 +18,68 @@ export function MechaSprite({
   mechaId,
   faction = 'player',
   acted = false,
+  facing = faction === 'enemy' ? 'left' : 'right',
+  bossPhase2 = false,
+  animation,
+  showShadow = false,
+  enableIdle = false,
   className = 'h-10 w-10',
 }: MechaSpriteProps) {
+  const spriteUrl = getMechaSpriteUrl(mechaId, bossPhase2);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [spriteUrl]);
+
+  const animClass =
+    animation === 'attack'
+      ? 'animate-sprite-lunge'
+      : animation === 'hit'
+        ? 'animate-sprite-hurt'
+        : animation === 'evade'
+          ? 'animate-evade-dodge'
+          : enableIdle && !acted
+            ? 'animate-sprite-idle'
+            : '';
+
   const actedClass = acted
-    ? 'grayscale-[65%] brightness-75 opacity-75 translate-y-0.5 scale-95'
+    ? 'grayscale-[75%] brightness-60 opacity-70 scale-95'
     : 'drop-shadow-[0_0_6px_rgba(34,211,238,0.35)]';
 
-  const wrapperClass = `inline-block transition-all duration-300 ${actedClass} ${className}`;
+  const facingTransform = facing === 'left' ? 'scaleX(-1)' : 'scaleX(1)';
+
+  if (spriteUrl && !imgFailed) {
+    return (
+      <span
+        className={`relative inline-flex items-center justify-center ${className}`}
+        data-testid={`mecha-sprite-${mechaId}`}
+        data-facing={facing}
+        data-phase2={bossPhase2 ? 'true' : 'false'}
+      >
+        {showShadow && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -bottom-0.5 left-1/2 h-1.5 w-4/5 -translate-x-1/2 rounded-full bg-black/60 blur-[1px]"
+          />
+        )}
+        <span
+          className="inline-flex h-full w-full items-center justify-center transition-transform duration-200"
+          style={{ transform: facingTransform }}
+        >
+          <img
+            src={spriteUrl}
+            alt={mechaId}
+            draggable={false}
+            onError={() => setImgFailed(true)}
+            className={`h-full w-full object-contain transition-all duration-300 ${actedClass} ${animClass}`}
+          />
+        </span>
+      </span>
+    );
+  }
+
+  const wrapperClass = `inline-block transition-all duration-300 ${actedClass} ${animClass} ${className}`;
 
   // 1. Giga-Rex (Super Robot: Heavy horned V-fin, broad shoulders, glowing reactor)
   if (mechaId === 'giga_rex' || mechaId === 'aegis_01') {

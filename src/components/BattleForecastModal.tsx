@@ -35,18 +35,39 @@ export function BattleForecastModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-md"
       data-testid="battle-forecast-modal"
     >
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
-        {/* Header */}
-        <div className="border-b border-slate-800 bg-slate-950/90 px-6 py-4">
-          <p className="text-xs font-semibold tracking-widest text-amber-400 uppercase">
-            Battle Forecast
-          </p>
-          <h2 className="text-lg font-bold text-slate-100">
-            คาดการณ์การรบ (ตรวจสอบก่อนยืนยันโจมตี)
-          </h2>
+      <div className="hud-panel-amber radar-bg max-h-[90vh] w-full max-w-3xl overflow-y-auto bg-slate-900/95 shadow-2xl">
+        {/* Radar Target-Lock Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/30 bg-slate-950/90 px-6 py-4">
+          <div>
+            <p className="text-[11px] font-extrabold tracking-[0.28em] text-cyan-400 uppercase">
+              🎯 TARGET LOCK-ON · RADAR FORECAST
+            </p>
+            <h2 className="text-lg font-black tracking-tight text-slate-50">
+              คาดการณ์การปะทะ (BATTLE FORECAST)
+            </h2>
+          </div>
+
+          {/* Facing Pilot Face-Off Strip */}
+          <div className="flex items-center gap-3">
+            <PilotPortrait
+              pilotId={attacker.pilot.id}
+              faction={attacker.faction}
+              className="h-12 w-12 ring-2 ring-cyan-400/70"
+            />
+            <span className="rounded border border-amber-400/60 bg-amber-500/20 px-2.5 py-1 text-xs font-black tracking-widest text-amber-300">
+              VS
+            </span>
+            <span className="inline-block" style={{ transform: 'scaleX(-1)' }}>
+              <PilotPortrait
+                pilotId={defender.pilot.id}
+                faction={defender.faction}
+                className="h-12 w-12 ring-2 ring-rose-400/70"
+              />
+            </span>
+          </div>
         </div>
 
         {/* Comparison Grid */}

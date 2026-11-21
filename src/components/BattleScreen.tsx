@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AmbientBackdrop } from './AmbientBackdrop';
 import { BattleForecastModal } from './BattleForecastModal';
-import { BattleGrid } from './BattleGrid';
+import { BattleGrid, type CameraZoomState } from './BattleGrid';
 import { BattleLogPanel } from './BattleLogPanel';
+import type { CanvasParticleBurst } from './CanvasParticleOverlay';
 import type { CombatVfxEvent } from './CombatVfxOverlay';
 import { CounterAttackModal } from './CounterAttackModal';
 import { FinisherCutIn, type CutInEvent } from './FinisherCutIn';
@@ -10,6 +12,7 @@ import { SpiritMenuPanel } from './SpiritMenuPanel';
 import { StatusHeader } from './StatusHeader';
 import { UnitInfoPanel } from './UnitInfoPanel';
 import { WeaponMenuPanel } from './WeaponMenuPanel';
+import { audioEngine } from '../logic/audioEngine';
 import {
   buildBattleForecast,
   buildCounterPrompt,
@@ -26,12 +29,16 @@ import { getThreatLevelConfig } from '../logic/metaLogic';
 import {
   chooseEnemyMoveTarget,
   findBestWeaponInRange,
+  getCardinalDirectionTo,
+  getDangerZoneRowTiles,
   getManhattanDistance,
+  getMapLineTiles,
   getReachableTiles,
   getUnitAt,
   getWeaponRangeTiles,
   posKey,
   prepareUnitsForPhaseStart,
+  resolveKnockback,
 } from '../logic/gridLogic';
 import { applySpiritCommand } from '../logic/spiritLogic';
 import {
@@ -41,7 +48,9 @@ import {
 import type {
   BattleForecast,
   BattleUnit,
+  CardinalDirection,
   CounterPromptData,
+  DangerZoneState,
   DefenseAction,
   FloatingTextEvent,
   GridPosition,
@@ -71,6 +80,10 @@ interface BattleScreenProps {
   runPlayer: RunPlayerState;
   meta: MetaProgressState;
   threatLevel: number;
+  bgmEnabled: boolean;
+  sfxEnabled: boolean;
+  onToggleBgm: () => void;
+  onToggleSfx: () => void;
   onBattleVictory: (updatedPlayer: RunPlayerState) => void;
   onBattleDefeat: () => void;
 }
@@ -80,6 +93,10 @@ export function BattleScreen({
   runPlayer,
   meta,
   threatLevel,
+  bgmEnabled,
+  sfxEnabled,
+  onToggleBgm,
+  onToggleSfx,
   onBattleVictory,
   onBattleDefeat,
 }: BattleScreenProps) {
@@ -87,7 +104,11 @@ export function BattleScreen({
   const [units, setUnits] = useState<BattleUnit[]>(() =>
     createBattleUnitsForNode(runPlayer, node, meta, threatLevel)
   );
+  const [speedMultiplier, setSpeedMultiplier] = useState<1 | 2>(1);
+  const [cutInEnabled, setCutInEnabled] = useState<boolean>(true);
   const [selectedWeaponId, setSelectedWeaponId] = useState<string | null>(null);
+  const [mapDirection, setMapDirection] = useState<CardinalDirection>('up');
+  const [dangerZones, setDangerZones] = useState<DangerZoneState[]>([]);
   const [pendingForecast, setPendingForecast] = useState<BattleForecast | null>(
     null
   );
@@ -95,7 +116,12 @@ export function BattleScreen({
     useState<PendingCounterSession | null>(null);
   const [floatingTexts, setFloatingTexts] = useState<FloatingTextEvent[]>([]);
   const [combatVfx, setCombatVfx] = useState<CombatVfxEvent[]>([]);
+  const [canvasBursts, setCanvasBursts] = useState<CanvasParticleBurst[]>([]);
+  const [cameraZoom, setCameraZoom] = useState<CameraZoomState | null>(null);
+  const [hitstopUnitId, setHitstopUnitId] = useState<string | null>(null);
   const [activeCutIn, setActiveCutIn] = useState<CutInEvent | null>(null);
+  const [momentumBanner, setMomentumBanner] = useState<string | null>(null);
+  const [screenShake, setScreenShake] = useState(false);
   const [unitAnimations, setUnitAnimations] = useState<
     Record<string, UnitAnimationType>
   >({});
@@ -106,9 +132,13 @@ export function BattleScreen({
 
   const timersRef = useRef<number[]>([]);
   const floatSeqRef = useRef(0);
+  const zoomTokenRef = useRef(0);
+
+  const scaledDelay = (ms: number) =>
+    Math.max(40, Math.round(ms / speedMultiplier));
 
   const scheduleTimer = (fn: () => void, delayMs: number) => {
-    const id = window.setTimeout(fn, delayMs);
+    const id = window.setTimeout(fn, scaledDelay(delayMs));
     timersRef.current.push(id);
     return id;
   };
@@ -123,6 +153,19 @@ export function BattleScreen({
   useEffect(() => {
     return () => clearScheduledTimers();
   }, []);
+
+  // Safety Watchdog: prevents isBusy / cameraZoom / hitstop from ever locking during complex combos
+  useEffect(() => {
+    if (!isBusy || pendingCounter || pendingForecast) return;
+    const watchdogMs = Math.round(4800 / speedMultiplier);
+    const watchdogId = window.setTimeout(() => {
+      setIsBusy(false);
+      setCameraZoom(null);
+      setHitstopUnitId(null);
+      setActiveCutIn(null);
+    }, watchdogMs);
+    return () => window.clearTimeout(watchdogId);
+  }, [isBusy, pendingCounter, pendingForecast, speedMultiplier]);
 
   const appendLog = (message: string) => {
     setLogs((prev) => [message, ...prev].slice(0, 40));
@@ -152,11 +195,43 @@ export function BattleScreen({
     }, 1400);
   };
 
+  const spawnCanvasBurst = (
+    kind: CanvasParticleBurst['kind'],
+    to: GridPosition,
+    color: string,
+    from?: GridPosition
+  ) => {
+    const id = `cb-${++floatSeqRef.current}`;
+    setCanvasBursts((prev) => [...prev, { id, kind, from, to, color }]);
+    scheduleTimer(() => {
+      setCanvasBursts((prev) => prev.filter((b) => b.id !== id));
+    }, 1100);
+  };
+
+  const triggerCombatZoom = (
+    from: GridPosition,
+    to: GridPosition,
+    durationMs: number = 1050
+  ) => {
+    const token = ++zoomTokenRef.current;
+    const midCol = (from.col + to.col) / 2;
+    const midRow = (from.row + to.row) / 2;
+    const originX = ((midCol + 0.5) / stage1Map.cols) * 100;
+    const originY = ((midRow + 0.5) / stage1Map.rows) * 100;
+    setCameraZoom({ originX, originY, scale: 1.25 });
+    scheduleTimer(() => {
+      if (zoomTokenRef.current === token) {
+        setCameraZoom(null);
+      }
+    }, durationMs);
+  };
+
   const spawnCombatVfx = (
     attacker: BattleUnit,
     defender: BattleUnit,
     weapon: WeaponData
   ) => {
+    audioEngine.playSfx(weapon.type === 'ranged' ? 'beam' : 'slash');
     const id = `vfx-${++floatSeqRef.current}`;
     const color =
       attacker.faction === 'enemy'
@@ -177,25 +252,252 @@ export function BattleScreen({
         color,
       },
     ]);
+    if (weapon.type === 'ranged') {
+      spawnCanvasBurst('beam', defender.position, color, attacker.position);
+    }
     scheduleTimer(() => {
       setCombatVfx((prev) => prev.filter((item) => item.id !== id));
     }, 620);
   };
 
-  const triggerFinisherCutIn = (attacker: BattleUnit, weapon: WeaponData) => {
-    if (weapon.willRequired < 120 && !attacker.activeSpirits.valor) return;
+  const triggerFinisherCutIn = (
+    attacker: BattleUnit,
+    weapon: WeaponData,
+    forceShow: boolean = false,
+    bannerLabel?: string
+  ) => {
+    if (!cutInEnabled) return;
+    if (!forceShow && weapon.willRequired < 120 && !attacker.activeSpirits.valor) {
+      return;
+    }
     const id = `cutin-${++floatSeqRef.current}`;
     setActiveCutIn({
       id,
       pilotId: attacker.pilot.id,
       pilotName: attacker.pilot.name,
+      mechaId: attacker.mecha.id,
       mechaName: attacker.mecha.name,
       weaponName: weapon.name,
       faction: attacker.faction,
+      bannerLabel,
     });
     scheduleTimer(() => {
       setActiveCutIn((prev) => (prev?.id === id ? null : prev));
     }, 1150);
+  };
+
+  const getFacingBetween = (
+    from: GridPosition,
+    to: GridPosition,
+    fallback: 'left' | 'right' = 'right'
+  ): 'left' | 'right' => {
+    if (to.col < from.col) return 'left';
+    if (to.col > from.col) return 'right';
+    return fallback;
+  };
+
+  const checkBossPhase2Transition = (
+    currentUnits: BattleUnit[]
+  ): BattleUnit[] => {
+    let triggeredBoss: BattleUnit | null = null;
+    const updated = currentUnits.map((u) => {
+      if (
+        u.faction === 'enemy' &&
+        u.mecha.id === 'overlord_dreadnought' &&
+        u.hp > 0 &&
+        !u.bossPhase2 &&
+        (u.hp / u.mecha.maxHp) * 100 <=
+          combatConfig.bossPhase2.hpThresholdPercent
+      ) {
+        triggeredBoss = { ...u, bossPhase2: true };
+        return triggeredBoss;
+      }
+      return u;
+    });
+
+    if (triggeredBoss) {
+      const boss: BattleUnit = triggeredBoss;
+      setScreenShake(true);
+      scheduleTimer(() => setScreenShake(false), 550);
+      setActiveCutIn({
+        id: `cutin-boss-p2-${++floatSeqRef.current}`,
+        pilotId: boss.pilot.id,
+        pilotName: boss.pilot.name,
+        mechaId: boss.mecha.id,
+        mechaName: boss.mecha.name,
+        weaponName: 'OVERLORD PHASE 2 AWAKENING',
+        faction: 'enemy',
+        bannerLabel: '👹 BOSS PHASE 2 ROAR!',
+      });
+      scheduleTimer(() => setActiveCutIn(null), 1300);
+      spawnFloatingText(boss.position, 'PHASE 2!', 'collision');
+      appendLog(
+        `👹 [BOSS PHASE 2] ${boss.mecha.name} คำรามเปลี่ยนร่างเข้าสู่ Phase 2!`
+      );
+    }
+
+    return updated;
+  };
+
+  const triggerMomentumBanner = (mechaName: string) => {
+    setMomentumBanner(`⚡ MOMENTUM! EXTRA ACTION — ${mechaName}`);
+    scheduleTimer(() => setMomentumBanner(null), 1500);
+  };
+
+  const applyMomentumIfEligible = (
+    attackerId: string,
+    currentUnits: BattleUnit[]
+  ): BattleUnit[] => {
+    const unit = currentUnits.find((u) => u.instanceId === attackerId);
+    const hasRemainingEnemies = currentUnits.some(
+      (u) => u.faction === 'enemy' && u.hp > 0
+    );
+    if (
+      !unit ||
+      unit.faction !== 'player' ||
+      unit.hp <= 0 ||
+      unit.momentumUsedThisTurn ||
+      !hasRemainingEnemies
+    ) {
+      return currentUnits;
+    }
+
+    triggerMomentumBanner(unit.mecha.name);
+    appendLog(
+      `⚡ MOMENTUM! EXTRA ACTION — ${unit.mecha.name} ทำลายศัตรูสำเร็จ! เดินต่อได้อีก ${combatConfig.momentum.bonusMoveSteps} ช่องและโจมตีซ้ำได้อีก 1 ครั้ง`
+    );
+
+    return currentUnits.map((u) =>
+      u.instanceId === attackerId
+        ? {
+            ...u,
+            hasMoved: false,
+            hasActed: false,
+            momentumUsedThisTurn: true,
+            momentumMoveLimit: combatConfig.momentum.bonusMoveSteps,
+          }
+        : u
+    );
+  };
+
+  const handleOverLimit = () => {
+    if (
+      battleOutcome ||
+      turnState.phase !== 'PLAYER_PHASE' ||
+      isBusy ||
+      !selectedUnit ||
+      selectedUnit.faction !== 'player' ||
+      selectedUnit.overLimitUsedThisTurn
+    ) {
+      return;
+    }
+
+    const hpPct = (selectedUnit.hp / selectedUnit.mecha.maxHp) * 100;
+    if (hpPct < combatConfig.overLimit.minHpThresholdPercent) return;
+
+    const hpCost = Math.round(
+      (selectedUnit.mecha.maxHp * combatConfig.overLimit.hpCostPercent) / 100
+    );
+    const nextHp = Math.max(1, selectedUnit.hp - hpCost);
+    const nextEn = Math.min(
+      selectedUnit.mecha.maxEn,
+      selectedUnit.en + combatConfig.overLimit.enGain
+    );
+    const nextWill = Math.min(
+      selectedUnit.maxWill,
+      selectedUnit.will + combatConfig.overLimit.willGain
+    );
+
+    setUnits((prev) =>
+      prev.map((u) =>
+        u.instanceId === selectedUnit.instanceId
+          ? {
+              ...u,
+              hp: nextHp,
+              en: nextEn,
+              will: nextWill,
+              overLimitActive: true,
+              overLimitUsedThisTurn: true,
+            }
+          : u
+      )
+    );
+
+    setScreenShake(true);
+    audioEngine.playSfx('spirit');
+    scheduleTimer(() => setScreenShake(false), 500);
+    spawnFloatingText(
+      selectedUnit.position,
+      `OVER-LIMIT! +${nextEn - selectedUnit.en} EN +${nextWill - selectedUnit.will} WILL`,
+      'collision'
+    );
+    appendLog(
+      `🔥 [OVER-LIMIT] ${selectedUnit.mecha.name} เร่งเตาปฏิกรณ์! เสีย HP -${selectedUnit.hp - nextHp} → ฟื้นฟู EN +${nextEn - selectedUnit.en}, Will +${nextWill - selectedUnit.will}`
+    );
+  };
+
+  const applyKnockbackEffect = (
+    attackerPos: GridPosition,
+    targetId: string,
+    weapon: WeaponData,
+    currentUnits: BattleUnit[]
+  ): BattleUnit[] => {
+    if (!weapon.knockback || weapon.knockback <= 0) return currentUnits;
+
+    const targetBefore = currentUnits.find((u) => u.instanceId === targetId);
+    if (!targetBefore || targetBefore.hp <= 0) return currentUnits;
+
+    const kb = resolveKnockback(
+      attackerPos,
+      targetId,
+      weapon.knockback,
+      stage1Map,
+      currentUnits
+    );
+
+    if (kb.collided) {
+      triggerUnitAnimation(targetId, 'hit');
+      spawnFloatingText(
+        kb.finalPosition,
+        `COLLISION! -${kb.collisionDamage}`,
+        'collision'
+      );
+
+      const blockerLabel =
+        kb.collisionType === 'obstacle'
+          ? 'สิ่งกีดขวาง'
+          : kb.collisionType === 'border'
+            ? 'ขอบสนาม'
+            : kb.collidedUnit
+              ? kb.collidedUnit.mecha.name
+              : 'สิ่งกีดขวาง';
+
+      appendLog(
+        `💥 COLLISION! ${targetBefore.mecha.name} กระเด็นชน${blockerLabel} รับดาเมจเสริม ${kb.collisionDamage} และติดสถานะ Stunned!${
+          kb.targetDestroyedByCollision ? ' — ถูกทำลาย!' : ''
+        }`
+      );
+
+      if (kb.collidedUnit) {
+        triggerUnitAnimation(kb.collidedUnit.instanceId, 'hit');
+        spawnFloatingText(
+          kb.collidedUnit.position,
+          `COLLISION! -${kb.collisionDamage}`,
+          'collision'
+        );
+        appendLog(
+          `💥 ${kb.collidedUnit.mecha.name} ถูกชนเข้าอย่างจัง! รับดาเมจเสริม ${kb.collisionDamage} และติดสถานะ Stunned!${
+            kb.collidedUnitDestroyed ? ' — ถูกทำลาย!' : ''
+          }`
+        );
+      }
+    } else if (kb.stepsMoved > 0) {
+      appendLog(
+        `💨 ${targetBefore.mecha.name} ถูกแรงกระแทกผลักถอยหลัง ${kb.stepsMoved} ช่อง → ${formatCoord(kb.finalPosition)}`
+      );
+    }
+
+    return kb.updatedUnits;
   };
 
   const mainPlayerUnit = units.find((u) => u.isMainUnit);
@@ -252,6 +554,49 @@ export function BattleScreen({
     return new Set(tiles.map(posKey));
   }, [battleOutcome, turnState.phase, selectedUnit, selectedWeapon, units]);
 
+  const mapPreviewTiles = useMemo(() => {
+    if (
+      battleOutcome ||
+      turnState.phase !== 'PLAYER_PHASE' ||
+      !selectedUnit ||
+      selectedUnit.faction !== 'player' ||
+      selectedUnit.hasActed ||
+      !selectedWeapon ||
+      !selectedWeapon.is_map_weapon
+    ) {
+      return [] as GridPosition[];
+    }
+    const length =
+      selectedWeapon.mapLength ?? combatConfig.mapWeapon.defaultLineLength;
+    return getMapLineTiles(selectedUnit.position, mapDirection, length, stage1Map);
+  }, [battleOutcome, turnState.phase, selectedUnit, selectedWeapon, mapDirection]);
+
+  const mapPreviewTileKeys = useMemo(
+    () => new Set(mapPreviewTiles.map(posKey)),
+    [mapPreviewTiles]
+  );
+
+  const mapTargetCount = useMemo(
+    () =>
+      units.filter(
+        (u) =>
+          u.faction === 'enemy' &&
+          u.hp > 0 &&
+          mapPreviewTileKeys.has(posKey(u.position))
+      ).length,
+    [units, mapPreviewTileKeys]
+  );
+
+  const dangerZoneTileKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const dz of dangerZones) {
+      for (const tile of dz.tiles) {
+        keys.add(posKey(tile));
+      }
+    }
+    return keys;
+  }, [dangerZones]);
+
   const attackRangeTileKeys = useMemo(() => {
     if (
       battleOutcome ||
@@ -259,7 +604,8 @@ export function BattleScreen({
       !selectedUnit ||
       selectedUnit.faction !== 'player' ||
       selectedUnit.hasActed ||
-      !selectedWeapon
+      !selectedWeapon ||
+      selectedWeapon.is_map_weapon
     ) {
       return new Set<string>();
     }
@@ -297,7 +643,11 @@ export function BattleScreen({
       setUnits(playerPrep.units);
       playerPrep.regenLogs.forEach((msg) => appendLog(msg));
       playerPrep.regenPopups.forEach((p) =>
-        spawnFloatingText(p.position, p.text, 'heal')
+        spawnFloatingText(
+          p.position,
+          p.text,
+          p.text === 'STUNNED!' ? 'collision' : 'heal'
+        )
       );
 
       setTurnState((prev) =>
@@ -325,7 +675,7 @@ export function BattleScreen({
 
     scheduleTimer(() => {
       const enemy = currentUnits.find((u) => u.instanceId === enemyId);
-      if (!enemy || enemy.hp <= 0) {
+      if (!enemy || enemy.hp <= 0 || enemy.hasActed) {
         processNextEnemy(restQueue, currentUnits, nextTurnNumber);
         return;
       }
@@ -337,6 +687,11 @@ export function BattleScreen({
       const movedEnemy: BattleUnit = {
         ...enemy,
         position: { ...targetPos },
+        facing: getFacingBetween(
+          enemy.position,
+          targetPos,
+          enemy.facing ?? 'left'
+        ),
         hasMoved: true,
       };
       const updatedUnits = currentUnits.map((u) =>
@@ -360,6 +715,40 @@ export function BattleScreen({
       const playerTarget = aliveTargets[0];
       if (!playerTarget) {
         finishEnemyPhase(updatedUnits, nextTurnNumber);
+        return;
+      }
+
+      // Elite & Boss Danger Zone Charge-Up Skill on odd turns (Telegraphs 1 full row!)
+      if (
+        movedEnemy.mecha.hasDangerZoneSkill &&
+        movedEnemy.mecha.dangerZoneWeapon &&
+        turnState.turnNumber % 2 === 1
+      ) {
+        const targetRow = playerTarget.position.row;
+        const rowTiles = getDangerZoneRowTiles(targetRow, stage1Map);
+        const newDz: DangerZoneState = {
+          id: `dz-${movedEnemy.instanceId}-${turnState.turnNumber}`,
+          casterId: movedEnemy.instanceId,
+          casterName: movedEnemy.mecha.name,
+          weapon: movedEnemy.mecha.dangerZoneWeapon,
+          row: targetRow,
+          tiles: rowTiles,
+        };
+        setDangerZones((prev) => [
+          ...prev.filter((z) => z.casterId !== movedEnemy.instanceId),
+          newDz,
+        ]);
+        spawnFloatingText(movedEnemy.position, 'CHARGING!', 'collision');
+        appendLog(
+          `⚠️ [DANGER ZONE] ${movedEnemy.mecha.name} กำลังชาร์จ ${movedEnemy.mecha.dangerZoneWeapon.name} เล็งแถวที่ ${
+            targetRow + 1
+          }! รีบหลบออกจากแถวสีแดงก่อนเทิร์นหน้าของศัตรู!`
+        );
+        const chargedUnits = updatedUnits.map((u) =>
+          u.instanceId === movedEnemy.instanceId ? { ...u, hasActed: true } : u
+        );
+        setUnits(chargedUnits);
+        processNextEnemy(restQueue, chargedUnits, nextTurnNumber);
         return;
       }
 
@@ -474,6 +863,15 @@ export function BattleScreen({
       appendLog(
         `🔥 ${enemy.mecha.name} ใช้ ${enemyWeapon.name} โจมตี ${actualDefender.mecha.name}${actionLabel} ทำดาเมจ ${enemyStrike.damage.toLocaleString()} (Hit ${enemyStrike.hitRate}%)`
       );
+      if (!enemyStrike.destroyed && enemyWeapon.knockback) {
+        latestUnits = applyKnockbackEffect(
+          enemy.position,
+          actualDefender.instanceId,
+          enemyWeapon,
+          latestUnits
+        );
+        setUnits(latestUnits);
+      }
     } else {
       triggerUnitAnimation(actualDefender.instanceId, 'evade');
       spawnFloatingText(actualDefender.position, 'MISS', 'miss');
@@ -546,6 +944,15 @@ export function BattleScreen({
               `🩸 Vampire Reactor: ${postEnemyStrikePlayer.mecha.name} ฟื้นฟู HP +${counterResult.vampireHealed.toLocaleString()}`
             );
           }
+          if (!counterResult.destroyed && playerCounterWeapon.knockback) {
+            latestUnits = applyKnockbackEffect(
+              postEnemyStrikePlayer.position,
+              postEnemyStrikeAttacker.instanceId,
+              playerCounterWeapon,
+              latestUnits
+            );
+            setUnits(latestUnits);
+          }
         } else {
           triggerUnitAnimation(postEnemyStrikeAttacker.instanceId, 'evade');
           spawnFloatingText(postEnemyStrikeAttacker.position, 'MISS', 'miss');
@@ -578,6 +985,25 @@ export function BattleScreen({
 
     const clickedKey = posKey(pos);
     const clickedUnit = getUnitAt(pos, units);
+
+    // 0. MAP Weapon aiming / firing by clicking on the grid
+    if (
+      selectedUnit &&
+      selectedUnit.faction === 'player' &&
+      !selectedUnit.hasActed &&
+      selectedWeapon &&
+      selectedWeapon.is_map_weapon
+    ) {
+      if (mapPreviewTileKeys.has(clickedKey)) {
+        handleFireMapWeapon();
+        return;
+      }
+      const nextDir = getCardinalDirectionTo(selectedUnit.position, pos);
+      if (nextDir) {
+        setMapDirection(nextDir);
+        return;
+      }
+    }
 
     if (
       selectedUnit &&
@@ -612,7 +1038,16 @@ export function BattleScreen({
       setUnits((prev) =>
         prev.map((u) =>
           u.instanceId === selectedUnit.instanceId
-            ? { ...u, position: { ...pos }, hasMoved: true }
+            ? {
+                ...u,
+                position: { ...pos },
+                facing: getFacingBetween(
+                  selectedUnit.position,
+                  pos,
+                  selectedUnit.facing ?? 'right'
+                ),
+                hasMoved: true,
+              }
             : u
         )
       );
@@ -651,6 +1086,178 @@ export function BattleScreen({
   const handleSelectWeapon = (weapon: WeaponData) => {
     if (!selectedUnit || selectedUnit.hasActed) return;
     setSelectedWeaponId(weapon.id);
+    if (weapon.is_map_weapon) {
+      // Auto-orient MAP line toward nearest alive enemy for convenience
+      const nearestEnemy = units
+        .filter((u) => u.faction === 'enemy' && u.hp > 0)
+        .sort(
+          (a, b) =>
+            getManhattanDistance(selectedUnit.position, a.position) -
+            getManhattanDistance(selectedUnit.position, b.position)
+        )[0];
+      if (nearestEnemy) {
+        const dir = getCardinalDirectionTo(
+          selectedUnit.position,
+          nearestEnemy.position
+        );
+        if (dir) setMapDirection(dir);
+      }
+    }
+  };
+
+  const handleFireMapWeapon = () => {
+    if (
+      battleOutcome ||
+      turnState.phase !== 'PLAYER_PHASE' ||
+      isBusy ||
+      !selectedUnit ||
+      !selectedWeapon ||
+      !selectedWeapon.is_map_weapon ||
+      selectedUnit.hasActed ||
+      mapPreviewTiles.length === 0
+    ) {
+      return;
+    }
+
+    const caster = selectedUnit;
+    const weapon = selectedWeapon;
+    const affectedKeys = new Set(mapPreviewTiles.map(posKey));
+    const targets = units.filter(
+      (u) =>
+        u.faction === 'enemy' &&
+        u.hp > 0 &&
+        affectedKeys.has(posKey(u.position))
+    );
+
+    setSelectedWeaponId(null);
+    setIsBusy(true);
+
+    // Cut-in + Wide MAP Beam VFX down the entire 4-tile line
+    triggerFinisherCutIn(caster, weapon, true);
+    triggerUnitAnimation(caster.instanceId, 'attack');
+    const furthestTile = mapPreviewTiles[mapPreviewTiles.length - 1];
+    const vfxId = `vfx-map-${++floatSeqRef.current}`;
+    setCombatVfx((prev) => [
+      ...prev,
+      {
+        id: vfxId,
+        weaponType: 'ranged',
+        from: { ...caster.position },
+        to: { ...furthestTile },
+        color: '#e879f9',
+      },
+    ]);
+    scheduleTimer(() => {
+      setCombatVfx((prev) => prev.filter((item) => item.id !== vfxId));
+    }, 700);
+
+    // Deduct EN once and mark unit acted
+    let updatedCaster: BattleUnit = {
+      ...caster,
+      en: Math.max(0, caster.en - weapon.enCost),
+      hasMoved: true,
+      hasActed: true,
+    };
+
+    let nextUnits = units.map((u) =>
+      u.instanceId === updatedCaster.instanceId ? updatedCaster : u
+    );
+
+    if (targets.length === 0) {
+      appendLog(
+        `🌟 [MAP] ${caster.mecha.name} ยิง ${weapon.name} (-${weapon.enCost} EN) แต่ไม่มีศัตรูในเส้นทาง 4 ช่อง`
+      );
+    } else {
+      appendLog(
+        `🌟 [MAP] ${caster.mecha.name} ยิง ${weapon.name} (-${weapon.enCost} EN) โจมตีพื้นที่ 4 ช่อง (ศัตรูไม่สามารถสวนกลับได้)!`
+      );
+
+      for (const target of targets) {
+        const defenderTerrain =
+          getTerrainById(
+            stage1Map.tiles[target.position.row][target.position.col]
+          ) ?? getTerrainById('normal')!;
+
+        const res = resolveAttackStrike(
+          updatedCaster,
+          target,
+          weapon,
+          defenderTerrain,
+          'counter',
+          Math.random(),
+          false,
+          1,
+          true
+        );
+
+        // Preserve Valor across all targets in the same MAP blast, then clear after loop
+        updatedCaster = {
+          ...res.updatedAttacker,
+          activeSpirits: updatedCaster.activeSpirits,
+          hasMoved: true,
+          hasActed: true,
+        };
+
+        nextUnits = nextUnits.map((u) => {
+          if (u.instanceId === updatedCaster.instanceId) return updatedCaster;
+          if (u.instanceId === res.updatedDefender.instanceId) {
+            return res.updatedDefender;
+          }
+          return u;
+        });
+
+        if (res.hit) {
+          triggerUnitAnimation(target.instanceId, 'hit');
+          const critPrefix = res.isCrit ? 'CRIT! ' : '';
+          spawnFloatingText(
+            target.position,
+            res.destroyed
+              ? `${critPrefix}-${res.damage.toLocaleString()} 💥`
+              : `${critPrefix}-${res.damage.toLocaleString()}`,
+            res.destroyed ? 'destroyed' : 'damage'
+          );
+          appendLog(
+            `💥 ${target.mecha.name} โดน ${weapon.name} ทำดาเมจ ${res.damage.toLocaleString()} (Hit ${res.hitRate}%)${
+              res.destroyed ? ' — ทำลายเป้าหมาย!' : ''
+            }`
+          );
+          if (res.vampireHealed > 0) {
+            spawnFloatingText(
+              updatedCaster.position,
+              `+${res.vampireHealed.toLocaleString()} HP`,
+              'heal'
+            );
+          }
+        } else {
+          triggerUnitAnimation(target.instanceId, 'evade');
+          spawnFloatingText(target.position, 'MISS', 'miss');
+          appendLog(`💨 ${target.mecha.name} หลบ ${weapon.name} พ้น!`);
+        }
+      }
+
+      // Consume Valor after MAP Weapon finishes hitting all targets
+      nextUnits = nextUnits.map((u) =>
+        u.instanceId === updatedCaster.instanceId
+          ? { ...u, activeSpirits: { ...u.activeSpirits, valor: false } }
+          : u
+      );
+
+      // Chain-Kill Momentum if MAP weapon destroyed at least 1 enemy!
+      const destroyedAny = targets.some((t) => {
+        const after = nextUnits.find((u) => u.instanceId === t.instanceId);
+        return after && after.hp <= 0;
+      });
+      if (destroyedAny) {
+        nextUnits = applyMomentumIfEligible(updatedCaster.instanceId, nextUnits);
+      }
+    }
+
+    nextUnits = checkBossPhase2Transition(nextUnits);
+    setUnits(nextUnits);
+    setTurnState((prev) =>
+      transitionTurnState(prev, { type: 'CANCEL_SELECTION' })
+    );
+    scheduleTimer(() => setIsBusy(false), 650);
   };
 
   const handleCastSpirit = (spirit: SpiritCommandData) => {
@@ -665,6 +1272,7 @@ export function BattleScreen({
     }
 
     const result = applySpiritCommand(selectedUnit, spirit, units);
+    audioEngine.playSfx('spirit');
     setUnits(result.updatedUnits);
     appendLog(result.logMessage);
     if (result.popup) {
@@ -758,10 +1366,12 @@ export function BattleScreen({
         stage1Map.tiles[defender.position.row][defender.position.col]
       ) ?? getTerrainById('normal')!;
 
-    // 1. Primary Player Attack
+    // 1. Primary Player Attack with Dynamic 1.25x Combat Zoom & 80ms Hitstop!
+    triggerCombatZoom(attacker.position, defender.position, 1150);
     triggerFinisherCutIn(attacker, attackerWeapon);
     triggerUnitAnimation(attacker.instanceId, 'attack');
     spawnCombatVfx(attacker, defender, attackerWeapon);
+
     const attackResult = resolveAttackStrike(
       attacker,
       defender,
@@ -770,15 +1380,17 @@ export function BattleScreen({
       'counter'
     );
 
-    const finishedAttacker: BattleUnit = {
-      ...attackResult.updatedAttacker,
-      hasMoved: true,
-      hasActed: true,
-    };
-    let latestDefender = attackResult.updatedDefender;
+    const executePrimaryImpact = () => {
+      setHitstopUnitId(null);
 
-    setUnits((prev) =>
-      prev.map((u) => {
+      const finishedAttacker: BattleUnit = {
+        ...attackResult.updatedAttacker,
+        hasMoved: true,
+        hasActed: true,
+      };
+      let latestDefender = attackResult.updatedDefender;
+
+      let workingUnitsAfterAttack = units.map((u) => {
         if (u.instanceId === finishedAttacker.instanceId) {
           return finishedAttacker;
         }
@@ -786,183 +1398,265 @@ export function BattleScreen({
           return latestDefender;
         }
         return u;
-      })
-    );
+      });
 
-    if (attackResult.hit) {
-      triggerUnitAnimation(defender.instanceId, 'hit');
-      const critPrefix = attackResult.isCrit ? 'CRIT! ' : '';
-      spawnFloatingText(
-        defender.position,
-        attackResult.destroyed
-          ? `${critPrefix}-${attackResult.damage.toLocaleString()} 💥`
-          : `${critPrefix}-${attackResult.damage.toLocaleString()}`,
-        attackResult.destroyed ? 'destroyed' : 'damage'
-      );
-      appendLog(
-        `⚔️ ${attacker.mecha.name} ใช้ ${attackerWeapon.name} โจมตี ${defender.mecha.name}${
-          attackResult.isCrit ? ' ⚡CRITICAL!' : ''
-        } ทำดาเมจ ${attackResult.damage.toLocaleString()} (Hit ${attackResult.hitRate}%)${
-          attackResult.destroyed ? ' — ทำลายเป้าหมาย!' : ''
-        }`
-      );
-      if (attackResult.armorBroken > 0) {
-        appendLog(
-          `🧪 เกราะของ ${defender.mecha.name} ลดลง -${attackResult.armorBroken} (เหลือ ${latestDefender.mecha.armor})`
+      if (attackResult.hit) {
+        audioEngine.playSfx(attackResult.destroyed ? 'explosion' : 'hit');
+        triggerUnitAnimation(defender.instanceId, 'hit');
+        spawnCanvasBurst(
+          attackResult.destroyed ? 'explosion' : 'impact',
+          defender.position,
+          attackResult.destroyed ? '#f97316' : '#38bdf8'
         );
-      }
-      if (attackResult.vampireHealed > 0) {
+        const critPrefix = attackResult.isCrit ? 'CRIT! ' : '';
         spawnFloatingText(
-          attacker.position,
-          `+${attackResult.vampireHealed.toLocaleString()} HP`,
-          'heal'
+          defender.position,
+          attackResult.destroyed
+            ? `${critPrefix}-${attackResult.damage.toLocaleString()} 💥`
+            : `${critPrefix}-${attackResult.damage.toLocaleString()}`,
+          attackResult.destroyed ? 'destroyed' : 'damage'
         );
         appendLog(
-          `🩸 Vampire Reactor: ${attacker.mecha.name} ฟื้นฟู HP +${attackResult.vampireHealed.toLocaleString()}`
+          `⚔️ ${attacker.mecha.name} ใช้ ${attackerWeapon.name} โจมตี ${defender.mecha.name}${
+            attackResult.isCrit ? ' ⚡CRITICAL!' : ''
+          } ทำดาเมจ ${attackResult.damage.toLocaleString()} (Hit ${attackResult.hitRate}%)${
+            attackResult.destroyed ? ' — ทำลายเป้าหมาย!' : ''
+          }`
         );
-      }
-    } else {
-      triggerUnitAnimation(defender.instanceId, 'evade');
-      spawnFloatingText(defender.position, 'MISS', 'miss');
-      appendLog(
-        `💨 ${attacker.mecha.name} ใช้ ${attackerWeapon.name} โจมตี ${defender.mecha.name} — MISS! (Hit ${attackResult.hitRate}%)`
-      );
-    }
-
-    setTurnState((prev) =>
-      transitionTurnState(prev, { type: 'CANCEL_SELECTION' })
-    );
-
-    const triggerEnemyCounterIfAlive = (defenderState: BattleUnit) => {
-      const counterWeapon =
-        defenderState.hp > 0
-          ? findBestWeaponInRange(defenderState, finishedAttacker)
-          : null;
-
-      if (!counterWeapon) {
-        scheduleTimer(() => setIsBusy(false), 450);
-        return;
-      }
-
-      scheduleTimer(() => {
-        const attackerTerrain =
-          getTerrainById(
-            stage1Map.tiles[finishedAttacker.position.row][
-              finishedAttacker.position.col
-            ]
-          ) ?? getTerrainById('normal')!;
-
-        triggerUnitAnimation(defenderState.instanceId, 'attack');
-        spawnCombatVfx(defenderState, finishedAttacker, counterWeapon);
-        const counterResult = resolveAttackStrike(
-          defenderState,
-          finishedAttacker,
-          counterWeapon,
-          attackerTerrain,
-          'counter'
-        );
-
-        setUnits((prev) =>
-          prev.map((u) => {
-            if (u.instanceId === counterResult.updatedAttacker.instanceId) {
-              return counterResult.updatedAttacker;
-            }
-            if (u.instanceId === counterResult.updatedDefender.instanceId) {
-              return counterResult.updatedDefender;
-            }
-            return u;
-          })
-        );
-
-        if (counterResult.hit) {
-          triggerUnitAnimation(finishedAttacker.instanceId, 'hit');
-          spawnFloatingText(
-            finishedAttacker.position,
-            counterResult.destroyed
-              ? `-${counterResult.damage.toLocaleString()} 💥`
-              : `-${counterResult.damage.toLocaleString()}`,
-            counterResult.destroyed ? 'destroyed' : 'damage'
-          );
+        if (attackResult.armorBroken > 0) {
           appendLog(
-            `↩️ ${defenderState.mecha.name} สวนกลับด้วย ${counterWeapon.name} ใส่ ${finishedAttacker.mecha.name} ทำดาเมจ ${counterResult.damage.toLocaleString()} (Hit ${counterResult.hitRate}%)`
-          );
-        } else {
-          triggerUnitAnimation(finishedAttacker.instanceId, 'evade');
-          spawnFloatingText(finishedAttacker.position, 'MISS', 'miss');
-          appendLog(
-            `💨 ${defenderState.mecha.name} สวนกลับด้วย ${counterWeapon.name} — MISS! (Hit ${counterResult.hitRate}%)`
+            `🧪 เกราะของ ${defender.mecha.name} ลดลง -${attackResult.armorBroken} (เหลือ ${latestDefender.mecha.armor})`
           );
         }
-
-        scheduleTimer(() => setIsBusy(false), 450);
-      }, 600);
-    };
-
-    // 2. Support Attack from adjacent ally (50% DMG, 0 EN) if defender survived
-    if (latestDefender.hp > 0 && supportAttack) {
-      scheduleTimer(() => {
-        triggerUnitAnimation(supportAttack.ally.instanceId, 'attack');
-        spawnCombatVfx(
-          supportAttack.ally,
-          latestDefender,
-          supportAttack.weapon
-        );
-        const supportResult = resolveAttackStrike(
-          supportAttack.ally,
-          latestDefender,
-          supportAttack.weapon,
-          defenderTerrain,
-          'counter',
-          Math.random(),
-          false,
-          combatConfig.support.supportAttackDamageMultiplier,
-          true
-        );
-
-        latestDefender = supportResult.updatedDefender;
-        setUnits((prev) =>
-          prev.map((u) => {
-            if (u.instanceId === supportResult.updatedAttacker.instanceId) {
-              return supportResult.updatedAttacker;
-            }
-            if (u.instanceId === latestDefender.instanceId) {
-              return latestDefender;
-            }
-            return u;
-          })
-        );
-
-        if (supportResult.hit) {
-          triggerUnitAnimation(latestDefender.instanceId, 'hit');
+        if (attackResult.vampireHealed > 0) {
           spawnFloatingText(
-            latestDefender.position,
-            supportResult.destroyed
-              ? `-${supportResult.damage.toLocaleString()} 💥`
-              : `-${supportResult.damage.toLocaleString()}`,
-            supportResult.destroyed ? 'destroyed' : 'damage'
+            attacker.position,
+            `+${attackResult.vampireHealed.toLocaleString()} HP`,
+            'heal'
           );
           appendLog(
-            `🤝 [Support Attack] ${supportAttack.ally.mecha.name} ช่วยยิงด้วย ${supportAttack.weapon.name} (0 EN) ทำดาเมจเสริม ${supportResult.damage.toLocaleString()} (Hit ${supportResult.hitRate}%)${
-              supportResult.destroyed ? ' — ทำลายเป้าหมาย!' : ''
-            }`
+            `🩸 Vampire Reactor: ${attacker.mecha.name} ฟื้นฟู HP +${attackResult.vampireHealed.toLocaleString()}`
           );
-          if (supportResult.armorBroken > 0) {
+        }
+      } else {
+        triggerUnitAnimation(defender.instanceId, 'evade');
+        spawnFloatingText(defender.position, 'MISS', 'miss');
+        appendLog(
+          `💨 ${attacker.mecha.name} ใช้ ${attackerWeapon.name} โจมตี ${defender.mecha.name} — MISS! (Hit ${attackResult.hitRate}%)`
+        );
+      }
+
+      if (
+        attackResult.hit &&
+        !attackResult.destroyed &&
+        attackerWeapon.knockback
+      ) {
+        workingUnitsAfterAttack = applyKnockbackEffect(
+          attacker.position,
+          latestDefender.instanceId,
+          attackerWeapon,
+          workingUnitsAfterAttack
+        );
+        latestDefender =
+          workingUnitsAfterAttack.find(
+            (u) => u.instanceId === latestDefender.instanceId
+          ) ?? latestDefender;
+      }
+
+      if (attackResult.mobilityDebuffed > 0) {
+        appendLog(
+          `⚡ EMP Disruptor ลด Mobility ของ ${defender.mecha.name} ลง -${attackResult.mobilityDebuffed} (เหลือ ${latestDefender.mecha.mobility})`
+        );
+      }
+
+      if (latestDefender.hp <= 0) {
+        workingUnitsAfterAttack = applyMomentumIfEligible(
+          finishedAttacker.instanceId,
+          workingUnitsAfterAttack
+        );
+      }
+
+      workingUnitsAfterAttack = workingUnitsAfterAttack.map((u) => {
+        if (u.instanceId === finishedAttacker.instanceId) {
+          return {
+            ...u,
+            facing: getFacingBetween(
+              attacker.position,
+              defender.position,
+              u.facing ?? 'right'
+            ),
+          };
+        }
+        if (u.instanceId === latestDefender.instanceId) {
+          return {
+            ...u,
+            facing: getFacingBetween(
+              defender.position,
+              attacker.position,
+              u.facing ?? 'left'
+            ),
+          };
+        }
+        return u;
+      });
+      workingUnitsAfterAttack = checkBossPhase2Transition(
+        workingUnitsAfterAttack
+      );
+
+      setUnits(workingUnitsAfterAttack);
+      setTurnState((prev) =>
+        transitionTurnState(prev, { type: 'CANCEL_SELECTION' })
+      );
+
+      const triggerEnemyCounterIfAlive = (defenderState: BattleUnit) => {
+        const counterWeapon =
+          defenderState.hp > 0
+            ? findBestWeaponInRange(defenderState, finishedAttacker)
+            : null;
+
+        if (!counterWeapon) {
+          scheduleTimer(() => setIsBusy(false), 450);
+          return;
+        }
+
+        scheduleTimer(() => {
+          const attackerTerrain =
+            getTerrainById(
+              stage1Map.tiles[finishedAttacker.position.row][
+                finishedAttacker.position.col
+              ]
+            ) ?? getTerrainById('normal')!;
+
+          triggerUnitAnimation(defenderState.instanceId, 'attack');
+          spawnCombatVfx(defenderState, finishedAttacker, counterWeapon);
+          const counterResult = resolveAttackStrike(
+            defenderState,
+            finishedAttacker,
+            counterWeapon,
+            attackerTerrain,
+            'counter'
+          );
+
+          setUnits((prev) =>
+            prev.map((u) => {
+              if (u.instanceId === counterResult.updatedAttacker.instanceId) {
+                return counterResult.updatedAttacker;
+              }
+              if (u.instanceId === counterResult.updatedDefender.instanceId) {
+                return counterResult.updatedDefender;
+              }
+              return u;
+            })
+          );
+
+          if (counterResult.hit) {
+            triggerUnitAnimation(finishedAttacker.instanceId, 'hit');
+            spawnCanvasBurst(
+              counterResult.destroyed ? 'explosion' : 'impact',
+              finishedAttacker.position,
+              '#f43f5e'
+            );
+            spawnFloatingText(
+              finishedAttacker.position,
+              counterResult.destroyed
+                ? `-${counterResult.damage.toLocaleString()} 💥`
+                : `-${counterResult.damage.toLocaleString()}`,
+              counterResult.destroyed ? 'destroyed' : 'damage'
+            );
             appendLog(
-              `🧪 เกราะของ ${latestDefender.mecha.name} ลดลง -${supportResult.armorBroken} (เหลือ ${latestDefender.mecha.armor})`
+              `↩️ ${defenderState.mecha.name} สวนกลับด้วย ${counterWeapon.name} ใส่ ${finishedAttacker.mecha.name} ทำดาเมจ ${counterResult.damage.toLocaleString()} (Hit ${counterResult.hitRate}%)`
+            );
+          } else {
+            triggerUnitAnimation(finishedAttacker.instanceId, 'evade');
+            spawnFloatingText(finishedAttacker.position, 'MISS', 'miss');
+            appendLog(
+              `💨 ${defenderState.mecha.name} สวนกลับด้วย ${counterWeapon.name} — MISS! (Hit ${counterResult.hitRate}%)`
             );
           }
-        } else {
-          triggerUnitAnimation(latestDefender.instanceId, 'evade');
-          spawnFloatingText(latestDefender.position, 'MISS', 'miss');
-          appendLog(
-            `💨 [Support Attack] ${supportAttack.ally.mecha.name} ช่วยยิงด้วย ${supportAttack.weapon.name} — MISS!`
-          );
-        }
 
+          scheduleTimer(() => setIsBusy(false), 450);
+        }, 600);
+      };
+
+      // 2. Support Attack from adjacent ally (50% DMG, 0 EN) if defender survived
+      if (latestDefender.hp > 0 && supportAttack) {
+        scheduleTimer(() => {
+          triggerUnitAnimation(supportAttack.ally.instanceId, 'attack');
+          spawnCombatVfx(
+            supportAttack.ally,
+            latestDefender,
+            supportAttack.weapon
+          );
+          const supportResult = resolveAttackStrike(
+            supportAttack.ally,
+            latestDefender,
+            supportAttack.weapon,
+            defenderTerrain,
+            'counter',
+            Math.random(),
+            false,
+            combatConfig.support.supportAttackDamageMultiplier,
+            true
+          );
+
+          latestDefender = supportResult.updatedDefender;
+          setUnits((prev) =>
+            prev.map((u) => {
+              if (u.instanceId === supportResult.updatedAttacker.instanceId) {
+                return supportResult.updatedAttacker;
+              }
+              if (u.instanceId === latestDefender.instanceId) {
+                return latestDefender;
+              }
+              return u;
+            })
+          );
+
+          if (supportResult.hit) {
+            triggerUnitAnimation(latestDefender.instanceId, 'hit');
+            spawnCanvasBurst(
+              supportResult.destroyed ? 'explosion' : 'impact',
+              latestDefender.position,
+              supportResult.destroyed ? '#f97316' : '#10b981'
+            );
+            spawnFloatingText(
+              latestDefender.position,
+              supportResult.destroyed
+                ? `-${supportResult.damage.toLocaleString()} 💥`
+                : `-${supportResult.damage.toLocaleString()}`,
+              supportResult.destroyed ? 'destroyed' : 'damage'
+            );
+            appendLog(
+              `🤝 [Support Attack] ${supportAttack.ally.mecha.name} ช่วยยิงด้วย ${supportAttack.weapon.name} (0 EN) ทำดาเมจเสริม ${supportResult.damage.toLocaleString()} (Hit ${supportResult.hitRate}%)${
+                supportResult.destroyed ? ' — ทำลายเป้าหมาย!' : ''
+              }`
+            );
+            if (supportResult.armorBroken > 0) {
+              appendLog(
+                `🧪 เกราะของ ${latestDefender.mecha.name} ลดลง -${supportResult.armorBroken} (เหลือ ${latestDefender.mecha.armor})`
+              );
+            }
+          } else {
+            triggerUnitAnimation(latestDefender.instanceId, 'evade');
+            spawnFloatingText(latestDefender.position, 'MISS', 'miss');
+            appendLog(
+              `💨 [Support Attack] ${supportAttack.ally.mecha.name} ช่วยยิงด้วย ${supportAttack.weapon.name} — MISS!`
+            );
+          }
+
+          triggerEnemyCounterIfAlive(latestDefender);
+        }, 600);
+      } else {
         triggerEnemyCounterIfAlive(latestDefender);
-      }, 600);
+      }
+    };
+
+    // 80ms Hitstop freeze + bright white flash before damage & knockback resolve!
+    if (attackResult.hit) {
+      setHitstopUnitId(defender.instanceId);
+      scheduleTimer(executePrimaryImpact, 80);
     } else {
-      triggerEnemyCounterIfAlive(latestDefender);
+      executePrimaryImpact();
     }
   };
 
@@ -983,6 +1677,88 @@ export function BattleScreen({
 
     const enemyPrep = prepareUnitsForPhaseStart(units, 'enemy', stage1Map);
     let workingUnits = enemyPrep.units;
+
+    // Detonate any telegraphed Elite/Boss Danger Zones at the start of Enemy Phase!
+    if (dangerZones.length > 0) {
+      for (const dz of dangerZones) {
+        const caster = workingUnits.find((u) => u.instanceId === dz.casterId);
+        if (!caster || caster.hp <= 0 || caster.hasActed) continue;
+
+        // Fire full-row crimson beam VFX
+        const dzVfxId = `vfx-dz-${++floatSeqRef.current}`;
+        setCombatVfx((prev) => [
+          ...prev,
+          {
+            id: dzVfxId,
+            weaponType: 'ranged',
+            from: { row: dz.row, col: stage1Map.cols - 1 },
+            to: { row: dz.row, col: 0 },
+            color: '#f43f5e',
+          },
+        ]);
+        scheduleTimer(() => {
+          setCombatVfx((prev) => prev.filter((item) => item.id !== dzVfxId));
+        }, 700);
+
+        const rowKeySet = new Set(dz.tiles.map(posKey));
+        const caughtPlayers = workingUnits.filter(
+          (u) =>
+            u.faction === 'player' &&
+            u.hp > 0 &&
+            rowKeySet.has(posKey(u.position))
+        );
+
+        appendLog(
+          `☄️ [DANGER ZONE] ${dz.casterName} ยิงลำแสงทำลายล้าง ${dz.weapon.name} ใส่แถวที่ ${
+            dz.row + 1
+          }!`
+        );
+
+        if (caughtPlayers.length === 0) {
+          appendLog(`💨 ยูนิตฝ่ายเราหลบออกจาก Danger Zone แถวที่ ${dz.row + 1} ได้ทันเวลา!`);
+        } else {
+          for (const target of caughtPlayers) {
+            const terrain =
+              getTerrainById(
+                stage1Map.tiles[target.position.row][target.position.col]
+              ) ?? getTerrainById('normal')!;
+            const res = resolveAttackStrike(
+              caster,
+              target,
+              dz.weapon,
+              terrain,
+              'counter',
+              Math.random(),
+              false,
+              combatConfig.dangerZone.damageMultiplier,
+              true
+            );
+            workingUnits = workingUnits.map((u) =>
+              u.instanceId === res.updatedDefender.instanceId
+                ? res.updatedDefender
+                : u
+            );
+            if (res.hit) {
+              triggerUnitAnimation(target.instanceId, 'hit');
+              spawnFloatingText(
+                target.position,
+                res.destroyed
+                  ? `-${res.damage.toLocaleString()} 💥`
+                  : `-${res.damage.toLocaleString()}`,
+                res.destroyed ? 'destroyed' : 'damage'
+              );
+              appendLog(
+                `🔥 ${target.mecha.name} โดนลำแสง Danger Zone ทำดาเมจ ${res.damage.toLocaleString()}!`
+              );
+            } else {
+              triggerUnitAnimation(target.instanceId, 'evade');
+              spawnFloatingText(target.position, 'MISS', 'miss');
+            }
+          }
+        }
+      }
+      setDangerZones([]);
+    }
 
     // Threat Level 3+ Boss Special Skill: Overlord Dreadnought activates Aegis Overcharge on even turns
     const threatCfg = getThreatLevelConfig(threatLevel);
@@ -1019,7 +1795,11 @@ export function BattleScreen({
     setUnits(workingUnits);
     enemyPrep.regenLogs.forEach((msg) => appendLog(msg));
     enemyPrep.regenPopups.forEach((p) =>
-      spawnFloatingText(p.position, p.text, 'heal')
+      spawnFloatingText(
+        p.position,
+        p.text,
+        p.text === 'STUNNED!' ? 'collision' : 'heal'
+      )
     );
 
     const enemyIds = workingUnits
@@ -1032,7 +1812,13 @@ export function BattleScreen({
   const handleRetryBattle = () => {
     clearScheduledTimers();
     setIsBusy(false);
+    // Clean reset of camera/hitstop/cutin on retry
+    setCameraZoom(null);
+    setHitstopUnitId(null);
+    setActiveCutIn(null);
+    setMomentumBanner(null);
     setSelectedWeaponId(null);
+    setDangerZones([]);
     setPendingForecast(null);
     setPendingCounter(null);
     setFloatingTexts([]);
@@ -1066,13 +1852,36 @@ export function BattleScreen({
 
   return (
     <div
-      className="min-h-screen bg-slate-950 text-slate-100"
+      className={`relative min-h-screen bg-slate-950 text-slate-100 ${
+        screenShake ? 'animate-screen-shake' : ''
+      }`}
       data-testid="battle-screen"
     >
+      <AmbientBackdrop />
+      <div className="relative z-10">
+      {momentumBanner && (
+        <div
+          className="pointer-events-none fixed inset-x-0 top-20 z-50 flex justify-center px-4"
+          data-testid="momentum-banner"
+        >
+          <div className="rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-600 via-orange-500 to-rose-600 px-8 py-3 text-base font-black tracking-wider text-white shadow-2xl">
+            {momentumBanner}
+          </div>
+        </div>
+      )}
+
       <StatusHeader
         stageName={`NODE ${node.nodeNumber} · ${node.title} (${node.typeLabel})`}
         turnState={turnState}
         isBusy={isBusy || battleOutcome !== null}
+        speedMultiplier={speedMultiplier}
+        cutInEnabled={cutInEnabled}
+        bgmEnabled={bgmEnabled}
+        sfxEnabled={sfxEnabled}
+        onToggleSpeed={() => setSpeedMultiplier((prev) => (prev === 1 ? 2 : 1))}
+        onToggleCutIn={() => setCutInEnabled((prev) => !prev)}
+        onToggleBgm={onToggleBgm}
+        onToggleSfx={onToggleSfx}
         onEndTurn={handleEndTurn}
         onReset={handleRetryBattle}
       />
@@ -1129,9 +1938,14 @@ export function BattleScreen({
           selectedUnitId={turnState.selectedUnitId}
           reachableTileKeys={reachableTileKeys}
           attackRangeTileKeys={attackRangeTileKeys}
+          mapPreviewTileKeys={mapPreviewTileKeys}
+          dangerZoneTileKeys={dangerZoneTileKeys}
           floatingTexts={floatingTexts}
           unitAnimations={unitAnimations}
           combatVfx={combatVfx}
+          canvasBursts={canvasBursts}
+          cameraZoom={cameraZoom}
+          hitstopUnitId={hitstopUnitId}
           onTileClick={handleTileClick}
         />
 
@@ -1148,6 +1962,7 @@ export function BattleScreen({
               unit={selectedUnit}
               allUnits={units}
               onCastSpirit={handleCastSpirit}
+              onOverLimit={handleOverLimit}
             />
           )}
 
@@ -1156,8 +1971,12 @@ export function BattleScreen({
               unit={selectedUnit}
               allUnits={units}
               selectedWeaponId={selectedWeaponId}
+              mapDirection={mapDirection}
+              mapTargetCount={mapTargetCount}
               onSelectWeapon={handleSelectWeapon}
               onCancelWeapon={() => setSelectedWeaponId(null)}
+              onChangeMapDirection={setMapDirection}
+              onFireMapWeapon={handleFireMapWeapon}
               onRepairAlly={handleRepairAlly}
               onWait={handleWaitUnit}
             />
@@ -1182,7 +2001,11 @@ export function BattleScreen({
         />
       )}
 
-      <FinisherCutIn cutIn={activeCutIn} />
+      <FinisherCutIn
+        cutIn={activeCutIn}
+        onSkip={() => setActiveCutIn(null)}
+      />
+      </div>
     </div>
   );
 }

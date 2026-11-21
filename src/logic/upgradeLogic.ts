@@ -1,5 +1,8 @@
+import combatConfigJson from '../data/combatConfig.json';
 import upgradesJson from '../data/upgrades.json';
+import weaponPoolJson from '../data/weapon_pool.json';
 import type {
+  DraftChoice,
   MechaData,
   RunPlayerState,
   UpgradeCardData,
@@ -7,6 +10,7 @@ import type {
 } from './types';
 
 export const upgradeCards = upgradesJson as UpgradeCardData[];
+export const weaponPool = weaponPoolJson as WeaponData[];
 
 export function getUpgradeById(id: string): UpgradeCardData | undefined {
   return upgradeCards.find((u) => u.id === id);
@@ -25,6 +29,22 @@ export function hasUpgrade(
   upgradeId: string
 ): boolean {
   return installedUpgradeIds.includes(upgradeId);
+}
+
+/**
+ * Filters weapon_pool.json for weapons compatible with the player's mecha
+ * (allowed_mechas contains "ALL" or the mecha's id) that are not already equipped.
+ */
+export function getEligibleWeaponsForMecha(
+  mechaId: string,
+  equippedWeapons: WeaponData[]
+): WeaponData[] {
+  const equippedIds = new Set(equippedWeapons.map((w) => w.id));
+  return weaponPool.filter((w) => {
+    if (equippedIds.has(w.id)) return false;
+    const allowed = w.allowed_mechas ?? ['ALL'];
+    return allowed.includes('ALL') || allowed.includes(mechaId);
+  });
 }
 
 /**
@@ -90,10 +110,6 @@ export function applyUpgradesToMecha(
   return { mecha: upgradedMecha, weapons: upgradedWeapons };
 }
 
-/**
- * Installs a chosen upgrade card into the central RunPlayerState.
- * Immediately grants bonus HP/EN if the card increases Max HP or Max EN.
- */
 export function installUpgradeOnRunPlayer(
   runPlayer: RunPlayerState,
   card: UpgradeCardData
@@ -107,23 +123,70 @@ export function installUpgradeOnRunPlayer(
   };
 }
 
-/**
- * Rolls 3 distinct upgrade cards for the Post-Battle Draft.
- * Excludes unique Tactical Chips that are already installed.
- */
-export function rollUpgradeDraftChoices(
-  installedUpgradeIds: string[],
-  count: number = 3
-): UpgradeCardData[] {
-  const pool = upgradeCards.filter(
-    (card) => !(card.unique && installedUpgradeIds.includes(card.id))
-  );
+export function equipWeaponOnRunPlayer(
+  runPlayer: RunPlayerState,
+  newWeapon: WeaponData,
+  replaceWeaponId?: string
+): RunPlayerState {
+  const maxSlots = combatConfigJson.weapons.maxSlots;
+  const current = [...runPlayer.equippedWeapons];
 
-  const shuffled = [...pool];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  if (replaceWeaponId) {
+    const idx = current.findIndex((w) => w.id === replaceWeaponId);
+    if (idx >= 0) {
+      current[idx] = newWeapon;
+      return { ...runPlayer, equippedWeapons: current };
+    }
   }
 
-  return shuffled.slice(0, Math.min(count, shuffled.length));
+  if (current.length < maxSlots) {
+    return { ...runPlayer, equippedWeapons: [...current, newWeapon] };
+  }
+
+  return runPlayer;
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/**
+ * Rolls 3 distinct Post-Battle Draft choices mixing Upgrades and New Weapons
+ * (filtered by the player's mecha compatibility). Guarantees at least 1 Weapon
+ * card whenever eligible weapons remain in the pool.
+ */
+export function rollPostBattleDraftChoices(
+  runPlayer: RunPlayerState,
+  mechaId: string,
+  count: number = 3
+): DraftChoice[] {
+  const upgradePool: DraftChoice[] = shuffle(
+    upgradeCards.filter(
+      (card) => !(card.unique && runPlayer.installedUpgradeIds.includes(card.id))
+    )
+  ).map((card) => ({ kind: 'upgrade', card }));
+
+  const eligibleWeapons: DraftChoice[] = shuffle(
+    getEligibleWeaponsForMecha(mechaId, runPlayer.equippedWeapons)
+  ).map((weapon) => ({ kind: 'weapon', weapon }));
+
+  const result: DraftChoice[] = [];
+
+  // Include 1 guaranteed compatible weapon if available
+  if (eligibleWeapons.length > 0) {
+    result.push(eligibleWeapons.shift()!);
+  }
+
+  // Mix remaining upgrades and weapons for the remaining slots
+  const combinedRest = shuffle([...upgradePool, ...eligibleWeapons]);
+  while (result.length < count && combinedRest.length > 0) {
+    result.push(combinedRest.shift()!);
+  }
+
+  return shuffle(result);
 }

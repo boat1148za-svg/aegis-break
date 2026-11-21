@@ -1,8 +1,10 @@
 import { combatConfig, getTerrainById, getUnitWeapons } from './dataLoader';
 import type {
   BattleUnit,
+  CardinalDirection,
   Faction,
   GridPosition,
+  KnockbackResult,
   StageMapData,
   WeaponData,
 } from './types';
@@ -48,7 +50,7 @@ export function getReachableTiles(
   map: StageMapData,
   units: BattleUnit[]
 ): GridPosition[] {
-  const maxSteps = unit.mecha.move;
+  const maxSteps = unit.momentumMoveLimit ?? unit.mecha.move;
   const startKey = posKey(unit.position);
   const visited = new Map<string, number>([[startKey, 0]]);
   const queue: Array<{ pos: GridPosition; steps: number }> = [
@@ -89,6 +91,65 @@ export function getReachableTiles(
   }
 
   return reachable;
+}
+
+/**
+ * Returns the 4-tile straight line for a MAP Weapon in a given cardinal direction.
+ */
+export function getMapLineTiles(
+  origin: GridPosition,
+  direction: CardinalDirection,
+  length: number,
+  map: StageMapData
+): GridPosition[] {
+  const dirVec: Record<CardinalDirection, GridPosition> = {
+    up: { row: -1, col: 0 },
+    down: { row: 1, col: 0 },
+    left: { row: 0, col: -1 },
+    right: { row: 0, col: 1 },
+  };
+  const step = dirVec[direction];
+  const tiles: GridPosition[] = [];
+  for (let i = 1; i <= length; i++) {
+    const pos: GridPosition = {
+      row: origin.row + step.row * i,
+      col: origin.col + step.col * i,
+    };
+    if (!isInBounds(pos, map)) break;
+    tiles.push(pos);
+  }
+  return tiles;
+}
+
+/**
+ * Infers the closest cardinal direction from origin -> target tile.
+ */
+export function getCardinalDirectionTo(
+  origin: GridPosition,
+  target: GridPosition
+): CardinalDirection | null {
+  const dr = target.row - origin.row;
+  const dc = target.col - origin.col;
+  if (dr === 0 && dc === 0) return null;
+  if (Math.abs(dr) >= Math.abs(dc)) {
+    return dr < 0 ? 'up' : 'down';
+  }
+  return dc < 0 ? 'left' : 'right';
+}
+
+/**
+ * Returns all tiles in a full horizontal row (1 row across the 8x8 grid) for a Boss/Elite Danger Zone.
+ */
+export function getDangerZoneRowTiles(
+  row: number,
+  map: StageMapData
+): GridPosition[] {
+  const tiles: GridPosition[] = [];
+  if (row < 0 || row >= map.rows) return tiles;
+  for (let col = 0; col < map.cols; col++) {
+    tiles.push({ row, col });
+  }
+  return tiles;
 }
 
 /**
@@ -197,8 +258,122 @@ export function chooseEnemyMoveTarget(
 }
 
 /**
- * Applies turn-start regeneration (auto EN regen + Base/Repair Zone HP & EN 10% regen)
- * and resets `hasMoved` / `hasActed` for the active faction.
+ * Resolves Knockback & Collision along a straight line from attacker -> target.
+ * - Pushes target up to `knockbackDistance` tiles.
+ * - If blocked by border, obstacle, or another unit: stops before the blocker,
+ *   deals collisionDamage (500) to target (and collided unit if any), and applies Stunned.
+ */
+export function resolveKnockback(
+  attackerPos: GridPosition,
+  targetId: string,
+  knockbackDistance: number,
+  map: StageMapData,
+  allUnits: BattleUnit[]
+): KnockbackResult {
+  const target = allUnits.find((u) => u.instanceId === targetId);
+  if (!target || target.hp <= 0 || knockbackDistance <= 0) {
+    return {
+      updatedUnits: allUnits,
+      pushed: false,
+      finalPosition: target?.position ?? attackerPos,
+      stepsMoved: 0,
+      collided: false,
+      collisionType: 'none',
+      collidedUnit: null,
+      collisionDamage: 0,
+      targetDestroyedByCollision: false,
+      collidedUnitDestroyed: false,
+    };
+  }
+
+  const dr = target.position.row - attackerPos.row;
+  const dc = target.position.col - attackerPos.col;
+  const stepRow = Math.abs(dr) >= Math.abs(dc) ? Math.sign(dr) : 0;
+  const stepCol = Math.abs(dr) >= Math.abs(dc) ? 0 : Math.sign(dc);
+
+  let currentPos: GridPosition = { ...target.position };
+  let stepsMoved = 0;
+  let collided = false;
+  let collisionType: KnockbackResult['collisionType'] = 'none';
+  let collidedUnit: BattleUnit | null = null;
+
+  for (let step = 0; step < knockbackDistance; step++) {
+    const nextPos: GridPosition = {
+      row: currentPos.row + stepRow,
+      col: currentPos.col + stepCol,
+    };
+
+    if (!isInBounds(nextPos, map)) {
+      collided = true;
+      collisionType = 'border';
+      break;
+    }
+
+    const terrain = getTerrainById(map.tiles[nextPos.row][nextPos.col]);
+    if (!terrain?.walkable) {
+      collided = true;
+      collisionType = 'obstacle';
+      break;
+    }
+
+    const occupant = getUnitAt(nextPos, allUnits);
+    if (occupant && occupant.instanceId !== target.instanceId) {
+      collided = true;
+      collisionType = 'unit';
+      collidedUnit = occupant;
+      break;
+    }
+
+    currentPos = nextPos;
+    stepsMoved += 1;
+  }
+
+  const collisionDamage = collided ? combatConfig.knockback.collisionDamage : 0;
+  let targetDestroyedByCollision = false;
+  let collidedUnitDestroyed = false;
+
+  const updatedUnits = allUnits.map((u) => {
+    if (u.instanceId === target.instanceId) {
+      const nextHp = collided ? Math.max(0, u.hp - collisionDamage) : u.hp;
+      if (collided && nextHp === 0) targetDestroyedByCollision = true;
+      return {
+        ...u,
+        position: { ...currentPos },
+        hp: nextHp,
+        stunned: collided ? true : u.stunned,
+      };
+    }
+
+    if (collided && collidedUnit && u.instanceId === collidedUnit.instanceId) {
+      const nextHp = Math.max(0, u.hp - collisionDamage);
+      if (nextHp === 0) collidedUnitDestroyed = true;
+      return {
+        ...u,
+        hp: nextHp,
+        stunned: true,
+      };
+    }
+
+    return u;
+  });
+
+  return {
+    updatedUnits,
+    pushed: stepsMoved > 0 || collided,
+    finalPosition: currentPos,
+    stepsMoved,
+    collided,
+    collisionType,
+    collidedUnit,
+    collisionDamage,
+    targetDestroyedByCollision,
+    collidedUnitDestroyed,
+  };
+}
+
+/**
+ * Applies turn-start regeneration (auto EN regen + Base/Repair Zone HP & EN 10% regen),
+ * handles Stunned turn-skip, and resets `hasMoved` / `hasActed` for the active faction.
  */
 export function prepareUnitsForPhaseStart(
   units: BattleUnit[],
@@ -251,12 +426,40 @@ export function prepareUnitsForPhaseStart(
       }
     }
 
+    // If unit was Stunned from a Collision, skip this turn and clear Stunned
+    if (unit.stunned) {
+      regenLogs.push(
+        `💫 ${unit.mecha.name} ติดสถานะ Stunned — ข้ามเทิร์นนี้!`
+      );
+      regenPopups.push({
+        position: { ...unit.position },
+        text: 'STUNNED!',
+      });
+      return {
+        ...unit,
+        hp: nextHp,
+        en: nextEn,
+        hasMoved: true,
+        hasActed: true,
+        stunned: false,
+        activeSpirits: {
+          ...unit.activeSpirits,
+          focus: false,
+          ironWall: false,
+        },
+      };
+    }
+
     return {
       ...unit,
       hp: nextHp,
       en: nextEn,
       hasMoved: false,
       hasActed: false,
+      momentumUsedThisTurn: false,
+      momentumMoveLimit: null,
+      overLimitActive: false,
+      overLimitUsedThisTurn: false,
       activeSpirits: {
         ...unit.activeSpirits,
         focus: false,

@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react';
+import { getPilotPortraitUrl } from '../logic/assetMap';
+
 interface PilotPortraitProps {
   pilotId: string;
   faction?: 'player' | 'enemy';
@@ -9,7 +12,29 @@ export function PilotPortrait({
   faction = 'player',
   className = 'h-12 w-12',
 }: PilotPortraitProps) {
+  const portraitUrl = getPilotPortraitUrl(pilotId);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [portraitUrl]);
+
   const isEnemy = faction === 'enemy';
+
+  if (portraitUrl && !imgFailed) {
+    return (
+      <img
+        src={portraitUrl}
+        alt={pilotId}
+        draggable={false}
+        onError={() => setImgFailed(true)}
+        data-testid={`pilot-portrait-${pilotId}`}
+        className={`rounded-lg border object-cover object-top ${
+          isEnemy ? 'border-rose-500/50' : 'border-cyan-400/50'
+        } bg-slate-950 ${className}`}
+      />
+    );
+  }
 
   // 1. Ren Takahashi (Hot-blooded Super Robot ace: spiky navy hair, intense eyes, red/slate suit)
   if (pilotId === 'pilot_ren') {

@@ -81,7 +81,10 @@ export function getEffectivePlayerMecha(
   meta?: MetaProgressState
 ): MechaData {
   const def = getUnitDefById(runPlayer.unitDefId) ?? getPlayableUnitDefs()[0];
-  const baseWeapons = getUnitWeapons({ mecha: def.mecha });
+  const baseWeapons =
+    runPlayer.equippedWeapons && runPlayer.equippedWeapons.length > 0
+      ? runPlayer.equippedWeapons
+      : getUnitWeapons({ mecha: def.mecha });
   const metaBonuses = meta
     ? getMetaBonuses(meta)
     : { hpBonus: 0, spBonus: 0, armorBonus: 0, unlockSupportMech: false };
@@ -132,6 +135,7 @@ export function createRunPlayerState(
     sp: def.pilot.maxSp + metaBonuses.spBonus,
     maxWillBonus: 0,
     installedUpgradeIds: [],
+    equippedWeapons: getUnitWeapons({ mecha: def.mecha }).map((w) => ({ ...w })),
     squadAllyIds: Array.from(allies).slice(0, maxAllies),
   };
 }
@@ -188,6 +192,7 @@ export function createBattleUnitsForNode(
     ammoByWeaponId: buildAmmoMap(effectiveMecha),
     hasMoved: false,
     hasActed: false,
+    facing: 'right',
     activeSpirits: {
       valor: false,
       focus: false,
@@ -236,6 +241,7 @@ export function createBattleUnitsForNode(
         ammoByWeaponId: buildAmmoMap(allyDef.mecha),
         hasMoved: false,
         hasActed: false,
+        facing: 'right',
         activeSpirits: {
           valor: false,
           focus: false,
@@ -278,6 +284,7 @@ export function createBattleUnitsForNode(
         ammoByWeaponId: buildAmmoMap(template.mecha),
         hasMoved: false,
         hasActed: false,
+        facing: 'left',
         activeSpirits: {
           valor: false,
           focus: false,

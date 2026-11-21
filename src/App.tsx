@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BattleScreen } from './components/BattleScreen';
 import {
   EventNodeScreen,
@@ -7,10 +7,14 @@ import {
 import { HangarScreen } from './components/HangarScreen';
 import { NodeMapScreen } from './components/NodeMapScreen';
 import { RunEndScreen } from './components/RunEndScreen';
+import { TitleScreen } from './components/TitleScreen';
 import { UpgradeDraftModal } from './components/UpgradeDraftModal';
+import { WeaponSwapModal } from './components/WeaponSwapModal';
+import { audioEngine } from './logic/audioEngine';
 import {
   combatConfig,
   createRunPlayerState,
+  getUnitDefById,
   runNodes,
 } from './logic/dataLoader';
 import {
@@ -21,22 +25,34 @@ import {
   threatLevels,
 } from './logic/metaLogic';
 import {
+  clearSavedRun,
+  loadSavedRun,
+  saveActiveRun,
+  type SavedRunState,
+} from './logic/runSaveLogic';
+import {
+  equipWeaponOnRunPlayer,
   installUpgradeOnRunPlayer,
-  rollUpgradeDraftChoices,
+  rollPostBattleDraftChoices,
 } from './logic/upgradeLogic';
 import type {
+  DraftChoice,
   MetaProgressState,
   RunNodeData,
   RunPlayerState,
   RunSummaryData,
   ScreenView,
-  UpgradeCardData,
+  WeaponData,
 } from './logic/types';
 
 interface PendingDraft {
   node: RunNodeData;
   playerAfterBattle: RunPlayerState;
-  choices: UpgradeCardData[];
+  choices: DraftChoice[];
+}
+
+interface PendingWeaponSwap {
+  newWeapon: WeaponData;
 }
 
 interface ActiveAmbush {
@@ -48,7 +64,9 @@ interface ActiveAmbush {
 
 export function App() {
   const [meta, setMeta] = useState<MetaProgressState>(loadMetaProgress);
-  const [screen, setScreen] = useState<ScreenView>('HANGAR');
+  const [savedRun, setSavedRun] = useState<SavedRunState | null>(loadSavedRun);
+  const [audioPrefs, setAudioPrefs] = useState(() => audioEngine.getPrefs());
+  const [screen, setScreen] = useState<ScreenView>('TITLE');
   const [runPlayer, setRunPlayer] = useState<RunPlayerState | null>(null);
   const [runThreatLevel, setRunThreatLevel] = useState(0);
   const [currentNodeIndex, setCurrentNodeIndex] = useState(0);
@@ -56,9 +74,41 @@ export function App() {
   const [activeNode, setActiveNode] = useState<RunNodeData | null>(null);
   const [activeAmbush, setActiveAmbush] = useState<ActiveAmbush | null>(null);
   const [pendingDraft, setPendingDraft] = useState<PendingDraft | null>(null);
+  const [pendingSwap, setPendingSwap] = useState<PendingWeaponSwap | null>(null);
   const [runSummary, setRunSummary] = useState<RunSummaryData | null>(null);
 
   const runVictory = clearedNodeIds.length >= runNodes.length;
+
+  // Unlock Web Audio Context on first user click anywhere
+  useEffect(() => {
+    const unlockAudio = () => audioEngine.unlock();
+    window.addEventListener('pointerdown', unlockAudio, { once: true });
+    return () => window.removeEventListener('pointerdown', unlockAudio);
+  }, []);
+
+  // Automatically switch procedural Synth BGM between Standard & Boss tracks
+  useEffect(() => {
+    if (screen === 'BATTLE' && activeNode?.type === 'boss_battle' && !activeAmbush) {
+      audioEngine.setBgmTrack('boss');
+    } else if (screen === 'TITLE' || screen === 'RUN_END') {
+      audioEngine.setBgmTrack('standard');
+    } else {
+      audioEngine.setBgmTrack('standard');
+    }
+  }, [screen, activeNode, activeAmbush]);
+
+  const handleToggleBgm = () => {
+    audioEngine.unlock();
+    const next = audioEngine.setBgmEnabled(!audioPrefs.bgmEnabled);
+    setAudioPrefs(next);
+  };
+
+  const handleToggleSfx = () => {
+    audioEngine.unlock();
+    const next = audioEngine.setSfxEnabled(!audioPrefs.sfxEnabled);
+    setAudioPrefs(next);
+    if (next.sfxEnabled) audioEngine.playSfx('click');
+  };
 
   const grantShardsImmediately = (amount: number) => {
     if (amount <= 0) return;
@@ -70,7 +120,24 @@ export function App() {
   };
 
   const handlePurchaseMetaUpgrade = (upgradeId: string) => {
+    audioEngine.playSfx('spirit');
     setMeta((prev) => purchaseMetaUpgrade(prev, upgradeId));
+  };
+
+  const persistProgress = (
+    player: RunPlayerState,
+    threatLevel: number,
+    nodeIdx: number,
+    cleared: string[]
+  ) => {
+    const payload = {
+      runPlayer: player,
+      runThreatLevel: threatLevel,
+      currentNodeIndex: nodeIdx,
+      clearedNodeIds: cleared,
+    };
+    saveActiveRun(payload);
+    setSavedRun({ ...payload, savedAt: Date.now() });
   };
 
   const handleStartRun = (
@@ -78,29 +145,55 @@ export function App() {
     startingAllyIds: string[],
     threatLevel: number
   ) => {
-    setRunPlayer(createRunPlayerState(unitDefId, meta, startingAllyIds));
+    audioEngine.unlock();
+    audioEngine.playSfx('click');
+    const initialPlayer = createRunPlayerState(unitDefId, meta, startingAllyIds);
+    setRunPlayer(initialPlayer);
     setRunThreatLevel(threatLevel);
     setCurrentNodeIndex(0);
     setClearedNodeIds([]);
     setActiveNode(null);
     setActiveAmbush(null);
     setPendingDraft(null);
+    setPendingSwap(null);
+    setRunSummary(null);
+    persistProgress(initialPlayer, threatLevel, 0, []);
+    setScreen('NODE_MAP');
+  };
+
+  const handleContinueSavedRun = () => {
+    if (!savedRun) return;
+    audioEngine.unlock();
+    audioEngine.playSfx('click');
+    setRunPlayer(savedRun.runPlayer);
+    setRunThreatLevel(savedRun.runThreatLevel);
+    setCurrentNodeIndex(savedRun.currentNodeIndex);
+    setClearedNodeIds(savedRun.clearedNodeIds);
+    setActiveNode(null);
+    setActiveAmbush(null);
+    setPendingDraft(null);
+    setPendingSwap(null);
     setRunSummary(null);
     setScreen('NODE_MAP');
   };
 
   const handleReturnToHangar = () => {
+    audioEngine.playSfx('click');
     setRunPlayer(null);
     setCurrentNodeIndex(0);
     setClearedNodeIds([]);
     setActiveNode(null);
     setActiveAmbush(null);
     setPendingDraft(null);
+    setPendingSwap(null);
     setRunSummary(null);
+    setSavedRun(loadSavedRun());
     setScreen('HANGAR');
   };
 
   const handleEnterNode = (node: RunNodeData) => {
+    audioEngine.unlock();
+    audioEngine.playSfx('click');
     setActiveNode(node);
     setActiveAmbush(null);
     if (node.type === 'repair_event' || node.type === 'repair_supply') {
@@ -147,6 +240,9 @@ export function App() {
     nodesClearedCount: number,
     playerSnapshot: RunPlayerState
   ) => {
+    clearSavedRun();
+    setSavedRun(null);
+
     const reward = calculateRunShardsReward(
       nodesClearedCount,
       outcome === 'victory',
@@ -192,6 +288,7 @@ export function App() {
     setActiveNode(null);
     setActiveAmbush(null);
     setPendingDraft(null);
+    setPendingSwap(null);
     setScreen('RUN_END');
   };
 
@@ -207,24 +304,26 @@ export function App() {
     const nextCleared = clearedNodeIds.includes(node.id)
       ? clearedNodeIds
       : [...clearedNodeIds, node.id];
+    const nextIdx = Math.min(runNodes.length, nextCleared.length);
 
     setRunPlayer(updatedPlayer);
     setClearedNodeIds(nextCleared);
-    setCurrentNodeIndex(Math.min(runNodes.length, nextCleared.length));
+    setCurrentNodeIndex(nextIdx);
 
     if (node.type === 'boss_battle' || nextCleared.length >= runNodes.length) {
       triggerRunEnd('victory', nextCleared.length, updatedPlayer);
       return;
     }
 
+    persistProgress(updatedPlayer, runThreatLevel, nextIdx, nextCleared);
     setActiveNode(null);
     setActiveAmbush(null);
     setPendingDraft(null);
+    setPendingSwap(null);
     setScreen('NODE_MAP');
   };
 
   const handleBattleVictory = (updatedPlayer: RunPlayerState) => {
-    // Handle Narrative Event Ambush victory (recruit ally or grant fallback shards)
     if (activeAmbush) {
       let rewardedPlayer = updatedPlayer;
       let bonusShards = 0;
@@ -257,10 +356,9 @@ export function App() {
     if (!activeNode) return;
 
     if (activeNode.type !== 'boss_battle') {
-      const choices = rollUpgradeDraftChoices(
-        updatedPlayer.installedUpgradeIds,
-        3
-      );
+      const mainDef = getUnitDefById(updatedPlayer.unitDefId);
+      const mechaId = mainDef?.mecha.id ?? 'giga_rex';
+      const choices = rollPostBattleDraftChoices(updatedPlayer, mechaId, 3);
       if (choices.length > 0) {
         setPendingDraft({
           node: activeNode,
@@ -282,14 +380,60 @@ export function App() {
     triggerRunEnd('defeat', clearedNodeIds.length, runPlayer);
   };
 
-  const handleSelectDraftCard = (card: UpgradeCardData) => {
+  const handleSelectDraftChoice = (choice: DraftChoice) => {
     if (!pendingDraft) return;
-    const upgradedPlayer = installUpgradeOnRunPlayer(
+    audioEngine.playSfx('spirit');
+
+    if (choice.kind === 'upgrade') {
+      const upgradedPlayer = installUpgradeOnRunPlayer(
+        pendingDraft.playerAfterBattle,
+        choice.card
+      );
+      finalizeNodeAndReturnToMap(pendingDraft.node, upgradedPlayer);
+      return;
+    }
+
+    const currentCount = pendingDraft.playerAfterBattle.equippedWeapons.length;
+    if (currentCount >= combatConfig.weapons.maxSlots) {
+      setPendingSwap({ newWeapon: choice.weapon });
+      return;
+    }
+
+    const equippedPlayer = equipWeaponOnRunPlayer(
       pendingDraft.playerAfterBattle,
-      card
+      choice.weapon
     );
-    finalizeNodeAndReturnToMap(pendingDraft.node, upgradedPlayer);
+    finalizeNodeAndReturnToMap(pendingDraft.node, equippedPlayer);
   };
+
+  const handleConfirmWeaponSwap = (replaceWeaponId: string) => {
+    if (!pendingDraft || !pendingSwap) return;
+    audioEngine.playSfx('spirit');
+    const swappedPlayer = equipWeaponOnRunPlayer(
+      pendingDraft.playerAfterBattle,
+      pendingSwap.newWeapon,
+      replaceWeaponId
+    );
+    finalizeNodeAndReturnToMap(pendingDraft.node, swappedPlayer);
+  };
+
+  if (screen === 'TITLE') {
+    return (
+      <TitleScreen
+        savedRun={savedRun}
+        bgmEnabled={audioPrefs.bgmEnabled}
+        sfxEnabled={audioPrefs.sfxEnabled}
+        onToggleBgm={handleToggleBgm}
+        onToggleSfx={handleToggleSfx}
+        onNewRun={() => {
+          audioEngine.unlock();
+          audioEngine.playSfx('click');
+          setScreen('HANGAR');
+        }}
+        onContinueRun={handleContinueSavedRun}
+      />
+    );
+  }
 
   if (screen === 'RUN_END' && runSummary) {
     return (
@@ -306,6 +450,11 @@ export function App() {
         meta={meta}
         onStartRun={handleStartRun}
         onPurchaseMetaUpgrade={handlePurchaseMetaUpgrade}
+        onBackToTitle={() => {
+          audioEngine.playSfx('click');
+          setSavedRun(loadSavedRun());
+          setScreen('TITLE');
+        }}
       />
     );
   }
@@ -335,14 +484,29 @@ export function App() {
           runPlayer={runPlayer}
           meta={meta}
           threatLevel={runThreatLevel}
+          bgmEnabled={audioPrefs.bgmEnabled}
+          sfxEnabled={audioPrefs.sfxEnabled}
+          onToggleBgm={handleToggleBgm}
+          onToggleSfx={handleToggleSfx}
           onBattleVictory={handleBattleVictory}
           onBattleDefeat={handleBattleDefeat}
         />
-        {pendingDraft && (
+        {pendingDraft && !pendingSwap && (
           <UpgradeDraftModal
             nodeNumber={pendingDraft.node.nodeNumber}
             choices={pendingDraft.choices}
-            onSelectCard={handleSelectDraftCard}
+            equippedWeaponCount={
+              pendingDraft.playerAfterBattle.equippedWeapons.length
+            }
+            onSelectChoice={handleSelectDraftChoice}
+          />
+        )}
+        {pendingDraft && pendingSwap && (
+          <WeaponSwapModal
+            newWeapon={pendingSwap.newWeapon}
+            currentWeapons={pendingDraft.playerAfterBattle.equippedWeapons}
+            onSwap={handleConfirmWeaponSwap}
+            onCancel={() => setPendingSwap(null)}
           />
         )}
       </>

@@ -225,6 +225,16 @@ export function CompendiumModal({ onClose }: CompendiumModalProps) {
                         ARM -{w.armorBreakAmount}
                       </span>
                     )}
+                    {w.knockback && w.knockback > 0 && (
+                      <span className="rounded bg-orange-500/25 px-1.5 text-orange-300">
+                        💥 KB {w.knockback}
+                      </span>
+                    )}
+                    {w.is_map_weapon && (
+                      <span className="rounded bg-fuchsia-500/25 px-1.5 text-fuchsia-200">
+                        🌟 MAP {w.mapLength ?? 4} ช่อง
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}

@@ -52,5 +52,31 @@
     "damageBonusPercent": 30,
     "critRateBonus": 25,
     "armorPenaltyPercent": 30
+  },
+  "knockback": {
+    "collisionDamage": 500,
+    "stunDurationTurns": 1
+  },
+  "mapWeapon": {
+    "defaultLineLength": 4
+  },
+  "dangerZone": {
+    "damageMultiplier": 1.35
+  },
+  "momentum": {
+    "bonusMoveSteps": 2,
+    "maxPerTurn": 1
+  },
+  "overLimit": {
+    "hpCostPercent": 20,
+    "minHpThresholdPercent": 25,
+    "enGain": 45,
+    "willGain": 15
+  },
+  "weapons": {
+    "maxSlots": 5
+  },
+  "bossPhase2": {
+    "hpThresholdPercent": 50
   }
 }

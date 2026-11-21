@@ -10,6 +10,7 @@ import {
   threatLevels,
 } from '../logic/metaLogic';
 import type { MetaProgressState } from '../logic/types';
+import { AmbientBackdrop } from './AmbientBackdrop';
 import { CompendiumModal } from './CompendiumModal';
 import { MetaUpgradesModal } from './MetaUpgradesModal';
 import { MechaSprite } from './MechaSprite';
@@ -23,12 +24,14 @@ interface HangarScreenProps {
     threatLevel: number
   ) => void;
   onPurchaseMetaUpgrade: (upgradeId: string) => void;
+  onBackToTitle: () => void;
 }
 
 export function HangarScreen({
   meta,
   onStartRun,
   onPurchaseMetaUpgrade,
+  onBackToTitle,
 }: HangarScreenProps) {
   const playableUnits = getPlayableUnitDefs();
   const medicDef = getUnitDefById('ally_aegis_medic');
@@ -54,12 +57,13 @@ export function HangarScreen({
 
   return (
     <div
-      className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100"
+      className="relative min-h-screen bg-slate-950 px-6 py-10 text-slate-100"
       data-testid="hangar-screen"
     >
-      <div className="mx-auto max-w-5xl">
+      <AmbientBackdrop />
+      <div className="relative z-10 mx-auto max-w-5xl">
         {/* Top Meta Bar */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/80 px-5 py-3">
+        <div className="hud-panel mb-6 flex flex-wrap items-center justify-between gap-3 bg-slate-900/85 px-5 py-3 backdrop-blur-md">
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <span
               className="rounded-lg border border-violet-500/40 bg-violet-950/40 px-3 py-1.5 font-bold text-violet-200"
@@ -100,6 +104,14 @@ export function HangarScreen({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              data-testid="hangar-back-title-btn"
+              onClick={onBackToTitle}
+              className="cursor-pointer rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs font-bold text-slate-300 transition hover:bg-slate-700"
+            >
+              ← Title
+            </button>
             <button
               type="button"
               data-testid="open-compendium-btn"
@@ -150,12 +162,12 @@ export function HangarScreen({
                 type="button"
                 data-testid={`hangar-unit-${unit.instanceId}`}
                 onClick={() => setSelectedId(unit.instanceId)}
-                className={`flex cursor-pointer flex-col justify-between rounded-2xl border p-6 text-left transition-all ${
+                className={`hud-panel flex cursor-pointer flex-col justify-between p-6 text-left backdrop-blur-md transition-all ${
                   isSelected
                     ? isRealRobot
-                      ? 'border-cyan-400 bg-cyan-950/25 ring-2 ring-cyan-400/70 shadow-xl shadow-cyan-950/50'
-                      : 'border-amber-400 bg-amber-950/20 ring-2 ring-amber-400/70 shadow-xl shadow-amber-950/40'
-                    : 'border-slate-800 bg-slate-900/70 hover:border-slate-600 hover:bg-slate-900'
+                      ? 'bg-cyan-950/40 ring-2 ring-cyan-400/80 shadow-xl shadow-cyan-950/60'
+                      : 'bg-amber-950/35 ring-2 ring-amber-400/80 shadow-xl shadow-amber-950/50'
+                    : 'bg-slate-900/80 hover:bg-slate-900'
                 }`}
               >
                 <div>
