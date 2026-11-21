@@ -2,9 +2,11 @@ import { getTerrainById } from '../logic/dataLoader';
 import { getUnitAt, posKey } from '../logic/gridLogic';
 import type {
   BattleUnit,
+  FloatingTextEvent,
   GridPosition,
   StageMapData,
   TerrainId,
+  UnitAnimationType,
 } from '../logic/types';
 
 interface BattleGridProps {
@@ -12,6 +14,9 @@ interface BattleGridProps {
   units: BattleUnit[];
   selectedUnitId: string | null;
   reachableTileKeys: Set<string>;
+  attackRangeTileKeys: Set<string>;
+  floatingTexts: FloatingTextEvent[];
+  unitAnimations: Record<string, UnitAnimationType>;
   onTileClick: (pos: GridPosition) => void;
 }
 
@@ -29,11 +34,40 @@ function getTerrainStyle(terrainId: TerrainId): string {
   }
 }
 
+function getFloatingTextStyle(variant: FloatingTextEvent['variant']): string {
+  switch (variant) {
+    case 'damage':
+      return 'bg-rose-600 text-white border-rose-300';
+    case 'destroyed':
+      return 'bg-amber-500 text-slate-950 border-amber-200';
+    case 'miss':
+      return 'bg-slate-700 text-slate-100 border-slate-400';
+    case 'heal':
+      return 'bg-emerald-600 text-white border-emerald-300';
+  }
+}
+
+function getUnitAnimationClass(anim?: UnitAnimationType): string {
+  switch (anim) {
+    case 'hit':
+      return 'animate-hit-shake';
+    case 'evade':
+      return 'animate-evade-dodge';
+    case 'attack':
+      return 'animate-attack-lunge';
+    default:
+      return '';
+  }
+}
+
 export function BattleGrid({
   map,
   units,
   selectedUnitId,
   reachableTileKeys,
+  attackRangeTileKeys,
+  floatingTexts,
+  unitAnimations,
   onTileClick,
 }: BattleGridProps) {
   return (
@@ -58,7 +92,11 @@ export function BattleGrid({
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-3 w-3 rounded border border-cyan-400 bg-cyan-500/40" />
-            Move Range
+            Move
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded border border-rose-400 bg-rose-500/40" />
+            Attack Range
           </span>
         </div>
       </div>
@@ -88,7 +126,13 @@ export function BattleGrid({
               const terrain = getTerrainById(terrainId);
               const unit = getUnitAt(pos, units);
               const isSelected = unit?.instanceId === selectedUnitId;
-              const isReachable = reachableTileKeys.has(key);
+              const isAttackRange = attackRangeTileKeys.has(key);
+              const isReachable = !isAttackRange && reachableTileKeys.has(key);
+              const isAttackableEnemy =
+                isAttackRange && unit?.faction === 'enemy';
+              const tileFloats = floatingTexts.filter(
+                (f) => f.position.row === rowIdx && f.position.col === colIdx
+              );
 
               return (
                 <button
@@ -97,6 +141,7 @@ export function BattleGrid({
                   data-testid={`tile-${rowIdx}-${colIdx}`}
                   data-terrain={terrainId}
                   data-reachable={isReachable ? 'true' : 'false'}
+                  data-attack-range={isAttackRange ? 'true' : 'false'}
                   onClick={() => onTileClick(pos)}
                   title={`${COL_LABELS[colIdx]}${rowIdx + 1} - ${terrain?.name ?? terrainId}${unit ? ` (${unit.mecha.name})` : ''}`}
                   className={`relative flex aspect-square cursor-pointer flex-col items-center justify-center rounded-lg border transition-all ${getTerrainStyle(
@@ -104,6 +149,14 @@ export function BattleGrid({
                   )} ${
                     isReachable
                       ? 'bg-cyan-500/25! border-cyan-400! ring-1 ring-cyan-400/70 hover:bg-cyan-500/40!'
+                      : ''
+                  } ${
+                    isAttackRange
+                      ? 'bg-rose-500/25! border-rose-500! ring-1 ring-rose-400/70 hover:bg-rose-500/35!'
+                      : ''
+                  } ${
+                    isAttackableEnemy
+                      ? 'ring-2! ring-rose-300! cursor-crosshair!'
                       : ''
                   } ${
                     isSelected
@@ -133,7 +186,9 @@ export function BattleGrid({
                         unit.faction === 'player'
                           ? 'bg-cyan-500/20 text-cyan-100'
                           : 'bg-rose-500/20 text-rose-100'
-                      } ${unit.hasMoved ? 'opacity-60' : ''}`}
+                      } ${unit.hasActed ? 'opacity-55' : ''} ${getUnitAnimationClass(
+                        unitAnimations[unit.instanceId]
+                      )}`}
                     >
                       <span className="text-lg leading-none sm:text-xl">
                         {unit.icon}
@@ -141,10 +196,10 @@ export function BattleGrid({
                       <span className="mt-0.5 truncate text-[10px] font-bold tracking-tight">
                         {unit.shortName}
                       </span>
-                      {/* Mini HP Bar */}
+                      {/* Mini HP Bar (smooth transition) */}
                       <div className="mt-0.5 h-1 w-4/5 overflow-hidden rounded-full bg-slate-950/90">
                         <div
-                          className={`h-full ${
+                          className={`h-full transition-all duration-500 ease-out ${
                             unit.faction === 'player'
                               ? 'bg-cyan-400'
                               : 'bg-rose-400'
@@ -160,12 +215,40 @@ export function BattleGrid({
                     </div>
                   )}
 
+                  {/* Active Spirit Buff icons on unit tile */}
+                  {unit &&
+                    (unit.activeSpirits.valor ||
+                      unit.activeSpirits.focus ||
+                      unit.activeSpirits.ironWall) && (
+                      <span
+                        className="absolute top-0.5 left-0.5 flex gap-0.5 text-[9px] leading-none"
+                        data-testid={`tile-buffs-${unit.instanceId}`}
+                      >
+                        {unit.activeSpirits.valor && <span>🔥</span>}
+                        {unit.activeSpirits.focus && <span>🎯</span>}
+                        {unit.activeSpirits.ironWall && <span>🛡️</span>}
+                      </span>
+                    )}
+
                   {/* Base corner indicator when unit stands on Repair Zone */}
                   {unit && terrainId === 'repair_zone' && (
                     <span className="absolute top-0.5 right-1 text-[10px] font-bold text-emerald-400">
                       ✚
                     </span>
                   )}
+
+                  {/* Floating Combat Popups (Damage / MISS / Heal) */}
+                  {tileFloats.map((evt) => (
+                    <span
+                      key={evt.id}
+                      data-testid="floating-combat-text"
+                      className={`animate-float-pop pointer-events-none absolute top-0 left-1/2 z-30 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-extrabold shadow-lg ${getFloatingTextStyle(
+                        evt.variant
+                      )}`}
+                    >
+                      {evt.text}
+                    </span>
+                  ))}
                 </button>
               );
             })}

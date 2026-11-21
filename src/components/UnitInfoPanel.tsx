@@ -1,4 +1,4 @@
-import { getTerrainById } from '../logic/dataLoader';
+import { combatConfig, getTerrainById } from '../logic/dataLoader';
 import type { BattleUnit, StageMapData } from '../logic/types';
 
 interface UnitInfoPanelProps {
@@ -16,8 +16,9 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
           Unit Status
         </h2>
         <p className="mt-3 text-sm text-slate-400">
-          คลิกที่หุ่น <span className="font-semibold text-cyan-300">Giga-Rex</span>{' '}
-          บนตารางเพื่อแสดงระยะการเดิน (Move) แล้วคลิกช่องสีฟ้าเพื่อสั่งเคลื่อนที่
+          คลิกที่หุ่น{' '}
+          <span className="font-semibold text-cyan-300">Giga-Rex</span>{' '}
+          บนตารางเพื่อสั่งเดิน, ใช้คำสั่งจิตใจ (Spirit Commands) หรือเลือกอาวุธโจมตี
         </p>
       </div>
     );
@@ -28,8 +29,45 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
   const coord = `${COL_LABELS[unit.position.col]}${unit.position.row + 1}`;
   const isPlayer = unit.faction === 'player';
 
+  const activeBuffBadges: Array<{ id: string; label: string; style: string }> =
+    [];
+  if (unit.activeSpirits.valor) {
+    activeBuffBadges.push({
+      id: 'valor',
+      label: '🔥 Valor (x2.0 DMG)',
+      style: 'border-rose-400/50 bg-rose-500/20 text-rose-200',
+    });
+  }
+  if (unit.activeSpirits.focus) {
+    activeBuffBadges.push({
+      id: 'focus',
+      label: '🎯 Focus (+30% Hit/Evade)',
+      style: 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200',
+    });
+  }
+  if (unit.activeSpirits.ironWall) {
+    activeBuffBadges.push({
+      id: 'iron_wall',
+      label: '🛡️ Iron Wall (-50% DMG)',
+      style: 'border-amber-400/50 bg-amber-500/20 text-amber-200',
+    });
+  }
+
+  const willProgress = Math.min(
+    100,
+    Math.max(
+      0,
+      ((unit.will - combatConfig.will.initial) /
+        (combatConfig.will.max - combatConfig.will.initial)) *
+        100
+    )
+  );
+
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+    <div
+      className="rounded-xl border border-slate-800 bg-slate-900/70 p-4"
+      data-testid="unit-info-panel"
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <span className="text-2xl">{unit.icon}</span>
@@ -53,8 +91,25 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
         </span>
       </div>
 
-      {/* HP & EN Bars */}
-      <div className="mt-4 space-y-2.5 text-xs">
+      {/* Active Spirit Buffs */}
+      {activeBuffBadges.length > 0 && (
+        <div
+          className="mt-3 flex flex-wrap gap-1.5"
+          data-testid="active-spirit-buffs"
+        >
+          {activeBuffBadges.map((buff) => (
+            <span
+              key={buff.id}
+              className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${buff.style}`}
+            >
+              {buff.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* HP, EN & Will Bars */}
+      <div className="mt-3 space-y-2 text-xs">
         <div>
           <div className="mb-1 flex justify-between text-slate-300">
             <span>HP</span>
@@ -64,7 +119,7 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-950">
             <div
-              className={`h-full ${isPlayer ? 'bg-cyan-400' : 'bg-rose-400'}`}
+              className={`h-full transition-all duration-500 ease-out ${isPlayer ? 'bg-cyan-400' : 'bg-rose-400'}`}
               style={{ width: `${(unit.hp / unit.mecha.maxHp) * 100}%` }}
             />
           </div>
@@ -79,52 +134,94 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-950">
             <div
-              className="h-full bg-amber-400"
+              className="h-full bg-amber-400 transition-all duration-500 ease-out"
               style={{ width: `${(unit.en / unit.mecha.maxEn) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-1 flex justify-between text-slate-300">
+            <span>
+              WILL{' '}
+              {unit.will >= 120 && (
+                <span className="ml-1 rounded bg-amber-500/20 px-1 text-[10px] font-bold text-amber-300">
+                  MAX POWER!
+                </span>
+              )}
+            </span>
+            <span className="font-semibold text-amber-300">
+              {unit.will} / {combatConfig.will.max}
+            </span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-slate-950">
+            <div
+              className="h-full bg-gradient-to-r from-amber-500 to-rose-500 transition-all duration-500 ease-out"
+              style={{ width: `${Math.max(8, willProgress)}%` }}
             />
           </div>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2">
+      {/* Mecha Stats */}
+      <div className="mt-3 grid grid-cols-4 gap-1.5 text-center text-[11px]">
+        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-1.5">
           <div className="text-[10px] text-slate-400">MOVE</div>
           <div className="font-bold text-cyan-300">{unit.mecha.move}</div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2">
+        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-1.5">
           <div className="text-[10px] text-slate-400">ARMOR</div>
           <div className="font-bold text-slate-200">{unit.mecha.armor}</div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2">
-          <div className="text-[10px] text-slate-400">MOBILITY</div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-1.5">
+          <div className="text-[10px] text-slate-400">MOB</div>
           <div className="font-bold text-slate-200">{unit.mecha.mobility}</div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2">
-          <div className="text-[10px] text-slate-400">WILL</div>
-          <div className="font-bold text-amber-300">{unit.will}</div>
-        </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2">
-          <div className="text-[10px] text-slate-400">SP</div>
-          <div className="font-bold text-violet-300">
-            {unit.sp}/{unit.pilot.maxSp}
-          </div>
-        </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-2">
+        <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-1.5">
           <div className="text-[10px] text-slate-400">STATUS</div>
           <div
             className={`font-bold ${
-              unit.hasMoved ? 'text-slate-500' : 'text-emerald-400'
+              unit.hasActed
+                ? 'text-slate-500'
+                : unit.hasMoved
+                  ? 'text-amber-300'
+                  : 'text-emerald-400'
             }`}
           >
-            {unit.hasMoved ? 'Moved' : 'Ready'}
+            {unit.hasActed ? 'Done' : unit.hasMoved ? 'Moved' : 'Ready'}
+          </div>
+        </div>
+      </div>
+
+      {/* Pilot Stats */}
+      <div className="mt-2 grid grid-cols-5 gap-1.5 text-center text-[11px]">
+        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-1.5">
+          <div className="text-[9px] text-slate-400">MEL</div>
+          <div className="font-bold text-slate-200">{unit.pilot.melee}</div>
+        </div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-1.5">
+          <div className="text-[9px] text-slate-400">RNG</div>
+          <div className="font-bold text-slate-200">{unit.pilot.ranged}</div>
+        </div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-1.5">
+          <div className="text-[9px] text-slate-400">ACC</div>
+          <div className="font-bold text-slate-200">{unit.pilot.accuracy}</div>
+        </div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-1.5">
+          <div className="text-[9px] text-slate-400">EVD</div>
+          <div className="font-bold text-slate-200">{unit.pilot.evade}</div>
+        </div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-1.5">
+          <div className="text-[9px] text-slate-400">SP</div>
+          <div className="font-bold text-violet-300">
+            {unit.sp}/{unit.pilot.maxSp}
           </div>
         </div>
       </div>
 
       {/* Terrain Info */}
-      <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-300">
-        <span className="text-slate-400">พื้นผิวปัจจุบัน: </span>
+      <div className="mt-2.5 rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-1.5 text-xs text-slate-300">
+        <span className="text-slate-400">พื้นผิว: </span>
         <span className="font-medium text-emerald-300">
           {terrain?.name} ({terrain?.label})
         </span>

@@ -1,9 +1,10 @@
-import { combatConfig, getTerrainById } from './dataLoader';
+import { combatConfig, getTerrainById, getUnitWeapons } from './dataLoader';
 import type {
   BattleUnit,
   Faction,
   GridPosition,
   StageMapData,
+  WeaponData,
 } from './types';
 
 const DIRECTIONS: readonly GridPosition[] = [
@@ -41,9 +42,6 @@ export function getUnitAt(
 
 /**
  * BFS pathfinding to find all valid tiles a unit can move to within its `move` range.
- * - Cannot enter non-walkable terrain (Obstacle).
- * - Cannot pass through opposing faction units.
- * - Can pass through allied units, but cannot end movement on an occupied tile.
  */
 export function getReachableTiles(
   unit: BattleUnit,
@@ -94,8 +92,68 @@ export function getReachableTiles(
 }
 
 /**
- * Simple enemy AI movement: moves toward the nearest alive player unit
- * by selecting the reachable tile with the lowest Manhattan distance.
+ * Returns all grid tiles within [weapon.minRange, weapon.maxRange] (Manhattan distance).
+ * Per GDD 2.1, obstacles do not block ranged attacks.
+ */
+export function getWeaponRangeTiles(
+  origin: GridPosition,
+  weapon: WeaponData,
+  map: StageMapData
+): GridPosition[] {
+  const tiles: GridPosition[] = [];
+  for (let row = 0; row < map.rows; row++) {
+    for (let col = 0; col < map.cols; col++) {
+      const dist = getManhattanDistance(origin, { row, col });
+      if (dist >= weapon.minRange && dist <= weapon.maxRange) {
+        tiles.push({ row, col });
+      }
+    }
+  }
+  return tiles;
+}
+
+export function canUseWeapon(
+  unit: BattleUnit,
+  weapon: WeaponData
+): { usable: boolean; reason?: string } {
+  if (unit.en < weapon.enCost) {
+    return { usable: false, reason: `EN ไม่พอ (ต้องการ ${weapon.enCost})` };
+  }
+  if (unit.will < weapon.willRequired) {
+    return {
+      usable: false,
+      reason: `Will ไม่พอ (ต้องการ ${weapon.willRequired})`,
+    };
+  }
+  if (weapon.ammo !== null) {
+    const remaining = unit.ammoByWeaponId[weapon.id] ?? 0;
+    if (remaining <= 0) {
+      return { usable: false, reason: 'กระสุนหมด' };
+    }
+  }
+  return { usable: true };
+}
+
+/**
+ * Finds the highest-power usable weapon that can reach the target from the unit's position.
+ */
+export function findBestWeaponInRange(
+  attacker: BattleUnit,
+  target: BattleUnit
+): WeaponData | null {
+  const dist = getManhattanDistance(attacker.position, target.position);
+  const available = getUnitWeapons(attacker).filter((weapon) => {
+    if (dist < weapon.minRange || dist > weapon.maxRange) return false;
+    return canUseWeapon(attacker, weapon).usable;
+  });
+
+  if (available.length === 0) return null;
+  available.sort((a, b) => b.power - a.power);
+  return available[0];
+}
+
+/**
+ * Simple enemy AI movement: moves toward the nearest alive player unit.
  */
 export function chooseEnemyMoveTarget(
   enemy: BattleUnit,
@@ -139,15 +197,20 @@ export function chooseEnemyMoveTarget(
 }
 
 /**
- * Applies turn-start regeneration (auto EN regen + Base/Repair Zone HP & EN regen)
+ * Applies turn-start regeneration (auto EN regen + Base/Repair Zone HP & EN 10% regen)
  * and resets `hasMoved` / `hasActed` for the active faction.
  */
 export function prepareUnitsForPhaseStart(
   units: BattleUnit[],
   faction: Faction,
   map: StageMapData
-): { units: BattleUnit[]; regenLogs: string[] } {
+): {
+  units: BattleUnit[];
+  regenLogs: string[];
+  regenPopups: Array<{ position: GridPosition; text: string }>;
+} {
   const regenLogs: string[] = [];
+  const regenPopups: Array<{ position: GridPosition; text: string }> = [];
 
   const updated = units.map((unit) => {
     if (unit.hp <= 0 || unit.faction !== faction) {
@@ -170,10 +233,22 @@ export function prepareUnitsForPhaseStart(
       unit.en + combatConfig.enRegenPerTurn + terrainEnGain
     );
 
-    if (terrain && (terrainHpGain > 0 || terrainEnGain > 0)) {
-      regenLogs.push(
-        `${unit.mecha.name} อยู่บน ${terrain.label}: ฟื้นฟู HP +${nextHp - unit.hp}, EN +${nextEn - unit.en}`
-      );
+    const actualHpGain = nextHp - unit.hp;
+    const actualEnGain = nextEn - unit.en;
+
+    if (terrain && (terrain.hpRegenPercent > 0 || terrain.enRegenPercent > 0)) {
+      if (actualHpGain > 0 || actualEnGain > 0) {
+        regenLogs.push(
+          `✚ ${unit.mecha.name} (${terrain.label}): ฟื้นฟู HP +${actualHpGain}, EN +${actualEnGain}`
+        );
+        const popupParts: string[] = [];
+        if (actualHpGain > 0) popupParts.push(`+${actualHpGain} HP`);
+        if (actualEnGain > 0) popupParts.push(`+${actualEnGain} EN`);
+        regenPopups.push({
+          position: { ...unit.position },
+          text: popupParts.join(' '),
+        });
+      }
     }
 
     return {
@@ -182,8 +257,13 @@ export function prepareUnitsForPhaseStart(
       en: nextEn,
       hasMoved: false,
       hasActed: false,
+      activeSpirits: {
+        ...unit.activeSpirits,
+        focus: false,
+        ironWall: false,
+      },
     };
   });
 
-  return { units: updated, regenLogs };
+  return { units: updated, regenLogs, regenPopups };
 }

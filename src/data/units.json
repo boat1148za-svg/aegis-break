@@ -14,7 +14,45 @@
       "armor": 1100,
       "mobility": 40,
       "move": 4,
-      "weaponIds": ["plasma_blade", "rail_rifle", "aegis_buster"]
+      "weaponIds": ["plasma_blade", "rail_rifle", "astral_nova_breaker"],
+      "weapons": [
+        {
+          "id": "plasma_blade",
+          "name": "Plasma Blade",
+          "type": "melee",
+          "power": 1800,
+          "accuracy": 35,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "rail_rifle",
+          "name": "Rail Rifle",
+          "type": "ranged",
+          "power": 1500,
+          "accuracy": 30,
+          "minRange": 2,
+          "maxRange": 4,
+          "enCost": 10,
+          "ammo": 8,
+          "willRequired": 100
+        },
+        {
+          "id": "astral_nova_breaker",
+          "name": "Astral Nova Breaker",
+          "type": "ranged",
+          "power": 3600,
+          "accuracy": 25,
+          "minRange": 1,
+          "maxRange": 4,
+          "enCost": 40,
+          "ammo": null,
+          "willRequired": 120
+        }
+      ]
     },
     "pilot": {
       "id": "pilot_ren",
@@ -22,9 +60,9 @@
       "faction": "player",
       "melee": 135,
       "ranged": 120,
-      "accuracy": 115,
-      "evade": 100,
-      "maxSp": 60,
+      "accuracy": 165,
+      "evade": 65,
+      "maxSp": 80,
       "spiritCommandIds": ["valor", "focus", "iron_wall", "trust"]
     }
   },
@@ -43,7 +81,33 @@
       "armor": 700,
       "mobility": 30,
       "move": 3,
-      "weaponIds": ["pulse_gun", "plasma_blade"]
+      "weaponIds": ["pulse_gun", "plasma_blade"],
+      "weapons": [
+        {
+          "id": "pulse_gun",
+          "name": "Pulse Gun",
+          "type": "ranged",
+          "power": 1400,
+          "accuracy": 20,
+          "minRange": 1,
+          "maxRange": 3,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "plasma_blade",
+          "name": "Plasma Blade",
+          "type": "melee",
+          "power": 1800,
+          "accuracy": 25,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        }
+      ]
     },
     "pilot": {
       "id": "ai_grunt_1",
@@ -51,8 +115,8 @@
       "faction": "enemy",
       "melee": 100,
       "ranged": 100,
-      "accuracy": 95,
-      "evade": 85,
+      "accuracy": 145,
+      "evade": 60,
       "maxSp": 0,
       "spiritCommandIds": []
     }
@@ -72,7 +136,21 @@
       "armor": 550,
       "mobility": 45,
       "move": 4,
-      "weaponIds": ["pulse_gun"]
+      "weaponIds": ["pulse_gun"],
+      "weapons": [
+        {
+          "id": "pulse_gun",
+          "name": "Pulse Gun",
+          "type": "ranged",
+          "power": 1400,
+          "accuracy": 20,
+          "minRange": 1,
+          "maxRange": 3,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        }
+      ]
     },
     "pilot": {
       "id": "ai_grunt_2",
@@ -80,8 +158,8 @@
       "faction": "enemy",
       "melee": 95,
       "ranged": 105,
-      "accuracy": 100,
-      "evade": 95,
+      "accuracy": 150,
+      "evade": 70,
       "maxSp": 0,
       "spiritCommandIds": []
     }

@@ -7,6 +7,7 @@
   "will": {
     "initial": 100,
     "max": 150,
+    "onHitLanded": 2,
     "onDestroyEnemy": 5,
     "onHitTaken": 2,
     "onEvade": 1

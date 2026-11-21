@@ -1,1 +1,82 @@
 @import "tailwindcss";
+
+@keyframes floatUpPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.8);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -6px) scale(1.12);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -18px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -28px) scale(0.95);
+  }
+}
+
+@keyframes hitShake {
+  0%, 100% {
+    transform: translateX(0);
+    filter: brightness(1);
+  }
+  15% {
+    transform: translateX(-6px) rotate(-3deg);
+    filter: brightness(1.6) drop-shadow(0 0 8px rgba(244, 63, 94, 0.9));
+  }
+  35% {
+    transform: translateX(6px) rotate(3deg);
+    filter: brightness(1.4) drop-shadow(0 0 8px rgba(244, 63, 94, 0.9));
+  }
+  55% {
+    transform: translateX(-4px) rotate(-2deg);
+  }
+  75% {
+    transform: translateX(4px) rotate(2deg);
+  }
+}
+
+@keyframes evadeDodge {
+  0%, 100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  35% {
+    transform: translateX(9px) skewX(-8deg);
+    opacity: 0.65;
+  }
+  70% {
+    transform: translateX(-4px);
+    opacity: 0.9;
+  }
+}
+
+@keyframes attackLunge {
+  0%, 100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.14);
+    filter: brightness(1.25);
+  }
+}
+
+.animate-float-pop {
+  animation: floatUpPop 1.35s ease-out forwards;
+}
+
+.animate-hit-shake {
+  animation: hitShake 0.48s ease-in-out;
+}
+
+.animate-evade-dodge {
+  animation: evadeDodge 0.45s ease-out;
+}
+
+.animate-attack-lunge {
+  animation: attackLunge 0.35s ease-out;
+}

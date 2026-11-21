@@ -66,6 +66,7 @@ export interface SpiritCommandData {
   id: string;
   name: string;
   nameTh: string;
+  icon?: string;
   spCost: number;
   duration: 'next_attack' | 'until_enemy_phase_end' | 'instant';
   target: 'self' | 'ally';
@@ -83,6 +84,7 @@ export interface MechaData {
   mobility: number;
   move: number;
   weaponIds: string[];
+  weapons?: WeaponData[];
 }
 
 export interface PilotData {
@@ -125,6 +127,7 @@ export interface BattleUnit {
   en: number;
   sp: number;
   will: number;
+  ammoByWeaponId: Record<string, number>;
   hasMoved: boolean;
   hasActed: boolean;
   activeSpirits: ActiveSpirits;
@@ -134,6 +137,45 @@ export interface CombatPreview {
   hitRate: number;
   baseDamage: number;
   finalDamage: number;
+}
+
+export interface BattleForecast {
+  attacker: BattleUnit;
+  defender: BattleUnit;
+  attackerWeapon: WeaponData;
+  attackerPreview: CombatPreview;
+  defenderCounterWeapon: WeaponData | null;
+  defenderPreview: CombatPreview | null;
+}
+
+export interface CounterPromptData {
+  enemy: BattleUnit;
+  player: BattleUnit;
+  enemyWeapon: WeaponData;
+  enemyPreviewCounter: CombatPreview;
+  enemyPreviewDefend: CombatPreview;
+  enemyPreviewEvade: CombatPreview;
+  playerCounterWeapon: WeaponData | null;
+  playerCounterPreview: CombatPreview | null;
+}
+
+export type UnitAnimationType = 'hit' | 'evade' | 'attack';
+
+export interface StrikeResolution {
+  updatedAttacker: BattleUnit;
+  updatedDefender: BattleUnit;
+  hit: boolean;
+  damage: number;
+  destroyed: boolean;
+  hitRate: number;
+  roll: number;
+}
+
+export interface FloatingTextEvent {
+  id: string;
+  position: GridPosition;
+  text: string;
+  variant: 'damage' | 'miss' | 'heal' | 'destroyed';
 }
 
 export interface TurnState {
