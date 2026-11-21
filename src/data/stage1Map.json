@@ -1,0 +1,16 @@
+{
+  "id": "stage_1",
+  "name": "Sector 01 - Outpost Perimeter",
+  "rows": 8,
+  "cols": 8,
+  "tiles": [
+    ["normal", "normal", "normal", "normal", "normal", "normal", "repair_zone", "normal"],
+    ["normal", "normal", "obstacle", "normal", "normal", "normal", "normal", "normal"],
+    ["normal", "normal", "obstacle", "normal", "normal", "obstacle", "normal", "normal"],
+    ["normal", "normal", "normal", "normal", "obstacle", "obstacle", "normal", "normal"],
+    ["normal", "normal", "obstacle", "normal", "normal", "normal", "normal", "normal"],
+    ["normal", "normal", "normal", "normal", "normal", "obstacle", "normal", "normal"],
+    ["normal", "normal", "normal", "normal", "normal", "normal", "normal", "normal"],
+    ["normal", "repair_zone", "normal", "normal", "normal", "normal", "normal", "normal"]
+  ]
+}

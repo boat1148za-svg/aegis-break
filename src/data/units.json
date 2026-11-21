@@ -1,0 +1,89 @@
+[
+  {
+    "instanceId": "player_giga_rex",
+    "faction": "player",
+    "icon": "🤖",
+    "shortName": "G-REX",
+    "startPosition": { "row": 6, "col": 1 },
+    "mecha": {
+      "id": "giga_rex",
+      "name": "Giga-Rex",
+      "faction": "player",
+      "maxHp": 5200,
+      "maxEn": 130,
+      "armor": 1100,
+      "mobility": 40,
+      "move": 4,
+      "weaponIds": ["plasma_blade", "rail_rifle", "aegis_buster"]
+    },
+    "pilot": {
+      "id": "pilot_ren",
+      "name": "Ren Takahashi",
+      "faction": "player",
+      "melee": 135,
+      "ranged": 120,
+      "accuracy": 115,
+      "evade": 100,
+      "maxSp": 60,
+      "spiritCommandIds": ["valor", "focus", "iron_wall", "trust"]
+    }
+  },
+  {
+    "instanceId": "enemy_sentinel_1",
+    "faction": "enemy",
+    "icon": "👾",
+    "shortName": "SNT-1",
+    "startPosition": { "row": 1, "col": 5 },
+    "mecha": {
+      "id": "sentinel_mk1",
+      "name": "Iron Sentinel A",
+      "faction": "enemy",
+      "maxHp": 3200,
+      "maxEn": 80,
+      "armor": 700,
+      "mobility": 30,
+      "move": 3,
+      "weaponIds": ["pulse_gun", "plasma_blade"]
+    },
+    "pilot": {
+      "id": "ai_grunt_1",
+      "name": "Automaton Alpha",
+      "faction": "enemy",
+      "melee": 100,
+      "ranged": 100,
+      "accuracy": 95,
+      "evade": 85,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  },
+  {
+    "instanceId": "enemy_sentinel_2",
+    "faction": "enemy",
+    "icon": "🛸",
+    "shortName": "VPR-2",
+    "startPosition": { "row": 2, "col": 6 },
+    "mecha": {
+      "id": "viper_scout",
+      "name": "Viper Scout B",
+      "faction": "enemy",
+      "maxHp": 2600,
+      "maxEn": 90,
+      "armor": 550,
+      "mobility": 45,
+      "move": 4,
+      "weaponIds": ["pulse_gun"]
+    },
+    "pilot": {
+      "id": "ai_grunt_2",
+      "name": "Automaton Beta",
+      "faction": "enemy",
+      "melee": 95,
+      "ranged": 105,
+      "accuracy": 100,
+      "evade": 95,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  }
+]

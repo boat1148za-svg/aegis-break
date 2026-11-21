@@ -1,0 +1,50 @@
+[
+  {
+    "id": "plasma_blade",
+    "name": "Plasma Blade",
+    "type": "melee",
+    "power": 1800,
+    "accuracy": 20,
+    "minRange": 1,
+    "maxRange": 1,
+    "enCost": 5,
+    "ammo": null,
+    "willRequired": 100
+  },
+  {
+    "id": "rail_rifle",
+    "name": "Rail Rifle",
+    "type": "ranged",
+    "power": 1500,
+    "accuracy": 15,
+    "minRange": 2,
+    "maxRange": 4,
+    "enCost": 10,
+    "ammo": 8,
+    "willRequired": 100
+  },
+  {
+    "id": "aegis_buster",
+    "name": "Aegis Buster Cannon",
+    "type": "ranged",
+    "power": 3200,
+    "accuracy": 10,
+    "minRange": 2,
+    "maxRange": 5,
+    "enCost": 40,
+    "ammo": null,
+    "willRequired": 120
+  },
+  {
+    "id": "pulse_gun",
+    "name": "Pulse Gun",
+    "type": "ranged",
+    "power": 1200,
+    "accuracy": 10,
+    "minRange": 1,
+    "maxRange": 3,
+    "enCost": 5,
+    "ammo": null,
+    "willRequired": 100
+  }
+]

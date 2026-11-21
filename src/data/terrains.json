@@ -1,0 +1,32 @@
+[
+  {
+    "id": "normal",
+    "name": "Normal",
+    "label": "พื้นที่ปกติ",
+    "walkable": true,
+    "blocksRanged": false,
+    "hpRegenPercent": 0,
+    "enRegenPercent": 0,
+    "evadeBonus": 0
+  },
+  {
+    "id": "repair_zone",
+    "name": "Base / Repair Zone",
+    "label": "จุดซ่อมบำรุง",
+    "walkable": true,
+    "blocksRanged": false,
+    "hpRegenPercent": 10,
+    "enRegenPercent": 10,
+    "evadeBonus": 0
+  },
+  {
+    "id": "obstacle",
+    "name": "Obstacle",
+    "label": "สิ่งกีดขวาง",
+    "walkable": false,
+    "blocksRanged": false,
+    "hpRegenPercent": 0,
+    "enRegenPercent": 0,
+    "evadeBonus": 0
+  }
+]

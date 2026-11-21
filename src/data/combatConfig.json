@@ -1,0 +1,37 @@
+{
+  "defaultGridSize": {
+    "rows": 8,
+    "cols": 8
+  },
+  "enRegenPerTurn": 5,
+  "will": {
+    "initial": 100,
+    "max": 150,
+    "onDestroyEnemy": 5,
+    "onHitTaken": 2,
+    "onEvade": 1
+  },
+  "hitRate": {
+    "min": 5,
+    "max": 100
+  },
+  "damage": {
+    "min": 10,
+    "statDivisor": 100,
+    "willDivisor": 100
+  },
+  "defenseActions": {
+    "counter": {
+      "damageTakenMultiplier": 1.0,
+      "evadeBonus": 0
+    },
+    "defend": {
+      "damageTakenMultiplier": 0.5,
+      "evadeBonus": 0
+    },
+    "evade": {
+      "damageTakenMultiplier": 1.0,
+      "evadeBonus": 30
+    }
+  }
+}

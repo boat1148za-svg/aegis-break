@@ -1,0 +1,51 @@
+[
+  {
+    "id": "valor",
+    "name": "Valor",
+    "nameTh": "ร้อนแรง",
+    "spCost": 30,
+    "duration": "next_attack",
+    "target": "self",
+    "description": "การโจมตีครั้งถัดไปสร้างดาเมจ x2.0",
+    "effects": {
+      "damageMultiplier": 2.0
+    }
+  },
+  {
+    "id": "focus",
+    "name": "Focus",
+    "nameTh": "เพ่งสมาธิ",
+    "spCost": 15,
+    "duration": "until_enemy_phase_end",
+    "target": "self",
+    "description": "เพิ่ม Hit Rate +30% และ Evade Rate +30% จนจบเทิร์นศัตรู",
+    "effects": {
+      "hitBonus": 30,
+      "evadeBonus": 30
+    }
+  },
+  {
+    "id": "iron_wall",
+    "name": "Iron Wall",
+    "nameTh": "กำแพงเหล็ก",
+    "spCost": 20,
+    "duration": "until_enemy_phase_end",
+    "target": "self",
+    "description": "ลดดาเมจที่ได้รับลง 50% จนจบเทิร์นศัตรู",
+    "effects": {
+      "damageTakenMultiplier": 0.5
+    }
+  },
+  {
+    "id": "trust",
+    "name": "Trust",
+    "nameTh": "ความเชื่อใจ",
+    "spCost": 25,
+    "duration": "instant",
+    "target": "ally",
+    "description": "ฟื้นฟู HP ให้หุ่นฝ่ายเดียวกัน 1 ตัวจำนวน 30% ของ Max HP",
+    "effects": {
+      "healHpPercent": 30
+    }
+  }
+]

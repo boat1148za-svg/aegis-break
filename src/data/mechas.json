@@ -1,0 +1,24 @@
+[
+  {
+    "id": "aegis_01",
+    "name": "AGX-01 Aegis Vanguard",
+    "faction": "player",
+    "maxHp": 4500,
+    "maxEn": 120,
+    "armor": 900,
+    "mobility": 45,
+    "move": 4,
+    "weaponIds": ["plasma_blade", "rail_rifle", "aegis_buster"]
+  },
+  {
+    "id": "sentinel_mk1",
+    "name": "DR-04 Iron Sentinel",
+    "faction": "enemy",
+    "maxHp": 3200,
+    "maxEn": 80,
+    "armor": 700,
+    "mobility": 30,
+    "move": 3,
+    "weaponIds": ["pulse_gun", "plasma_blade"]
+  }
+]
