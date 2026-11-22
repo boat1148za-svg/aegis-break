@@ -1,3 +1,4 @@
+import { getActiveAceStatus } from '../logic/aceLogic';
 import { isUnitInOverdrive } from '../logic/combatCalculator';
 import { combatConfig, getTerrainById } from '../logic/dataLoader';
 import { MechaSprite } from './MechaSprite';
@@ -8,21 +9,30 @@ import type { BattleUnit, StageMapData } from '../logic/types';
 interface UnitInfoPanelProps {
   unit: BattleUnit | null;
   map: StageMapData;
+  credits?: number;
 }
 
 const COL_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
-export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
+export function UnitInfoPanel({ unit, map, credits }: UnitInfoPanelProps) {
   if (!unit) {
     return (
       <div className="hud-panel bg-slate-900/85 p-4 backdrop-blur-md">
-        <h2 className="text-xs font-semibold tracking-wider text-cyan-400 uppercase">
-          COCKPIT TELEMETRY · UNIT STATUS
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold tracking-wider text-cyan-400 uppercase">
+            COCKPIT TELEMETRY · UNIT STATUS
+          </h2>
+          {typeof credits === 'number' && (
+            <span
+              className="font-sci-num rounded border border-[#ffb800]/50 bg-[#ffb800]/15 px-2 py-0.5 text-[11px] font-bold text-[#ffb800]"
+              data-testid="panel-credits-display"
+            >
+              🪙 {credits.toLocaleString()} Cr
+            </span>
+          )}
+        </div>
         <p className="mt-3 text-sm text-slate-400">
-          คลิกที่หุ่น{' '}
-          <span className="font-semibold text-cyan-300">Giga-Rex</span>{' '}
-          บนตารางเพื่อสั่งเดิน, ใช้คำสั่งจิตใจ (Spirit Commands) หรือเลือกอาวุธโจมตี
+          คลิกที่หุ่นบนตารางเพื่อสั่งเดิน, ใช้คำสั่งจิตใจ (Spirit Commands) หรือเลือกอาวุธโจมตี
         </p>
       </div>
     );
@@ -32,9 +42,25 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
   const terrain = getTerrainById(terrainId);
   const coord = `${COL_LABELS[unit.position.col]}${unit.position.row + 1}`;
   const isPlayer = unit.faction === 'player';
+  const kills = unit.killCount ?? 0;
+  const aceStatus = isPlayer ? getActiveAceStatus(unit.pilot.id, kills) : null;
 
   const activeBuffBadges: Array<{ id: string; label: string; style: string }> =
     [];
+  if (isPlayer && unit.mecha.hasSiegeLock && !unit.hasMoved) {
+    activeBuffBadges.push({
+      id: 'siege_lock',
+      label: '🎯 SIEGE LOCK (+20% ACC · +25% PIERCE)',
+      style: 'border-[#00f0ff]/75 bg-[#00f0ff]/20 text-[#00f0ff]',
+    });
+  }
+  if (aceStatus?.tierLabel) {
+    activeBuffBadges.push({
+      id: 'ace_bonus',
+      label: `★ ${aceStatus.tierLabel}`,
+      style: 'border-[#ffb800]/80 bg-[#ffb800]/20 text-[#ffb800]',
+    });
+  }
   if (unit.stunned) {
     activeBuffBadges.push({
       id: 'stunned',
@@ -101,23 +127,46 @@ export function UnitInfoPanel({ unit, map }: UnitInfoPanelProps) {
             className="h-10 w-10 shrink-0"
           />
           <div>
-            <h2 className="text-base font-bold text-slate-100">
-              {unit.mecha.name}
+            <h2 className="flex flex-wrap items-center gap-1.5 text-base font-bold text-slate-100">
+              <span>{unit.mecha.name}</span>
+              {aceStatus?.badgeText && (
+                <span
+                  className="font-orbitron rounded border border-[#ffb800]/80 bg-[#ffb800]/25 px-1.5 py-0.5 text-[9px] font-black text-[#ffb800]"
+                  data-testid="unit-ace-badge"
+                >
+                  {aceStatus.badgeText}
+                </span>
+              )}
             </h2>
             <p className="text-xs text-slate-400">
               Pilot: {unit.pilot.name} · Pos: {coord}
+              {isPlayer && (
+                <span className="font-sci-num ml-1.5 font-bold text-[#ffb800]">
+                  · ★ {kills} Kills
+                </span>
+              )}
             </p>
           </div>
         </div>
-        <span
-          className={`rounded px-2 py-0.5 text-[11px] font-semibold uppercase ${
-            isPlayer
-              ? 'bg-cyan-500/15 text-cyan-300'
-              : 'bg-rose-500/15 text-rose-300'
-          }`}
-        >
-          {unit.faction}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={`rounded px-2 py-0.5 text-[11px] font-semibold uppercase ${
+              isPlayer
+                ? 'bg-cyan-500/15 text-cyan-300'
+                : 'bg-rose-500/15 text-rose-300'
+            }`}
+          >
+            {unit.faction}
+          </span>
+          {typeof credits === 'number' && (
+            <span
+              className="font-sci-num text-[11px] font-bold text-[#ffb800]"
+              data-testid="panel-credits-display"
+            >
+              🪙 {credits.toLocaleString()} Cr
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Active Spirit Buffs */}

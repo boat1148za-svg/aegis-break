@@ -123,5 +123,39 @@
     "allowed_mechas": ["valkyrie_x"],
     "signatureMechaName": "Valkyrie-X",
     "description": "ใบมีดคู่ความเร็วแสงเฉพาะ Valkyrie-X เพิ่มคริติคอล +25% และ Knockback 1"
+  },
+  {
+    "id": "hyper_rail_lance",
+    "name": "Hyper Rail-Lance",
+    "type": "ranged",
+    "power": 3000,
+    "accuracy": 40,
+    "minRange": 3,
+    "maxRange": 6,
+    "enCost": 25,
+    "ammo": 5,
+    "willRequired": 110,
+    "armorPiercePercent": 65,
+    "allowed_mechas": ["mech_seraph_zero"],
+    "signatureMechaName": "Seraph-Zero",
+    "description": "ปืนใหญ่เรลกันเจาะเกราะเฉพาะ Seraph-Zero ระยะ 3–6 ช่อง เจาะเกราะ +65%"
+  },
+  {
+    "id": "seraphic_nova_barrage",
+    "name": "Seraphic Nova Barrage [MAP]",
+    "type": "ranged",
+    "power": 2700,
+    "accuracy": 35,
+    "minRange": 1,
+    "maxRange": 5,
+    "enCost": 45,
+    "ammo": null,
+    "willRequired": 125,
+    "is_map_weapon": true,
+    "mapLength": 5,
+    "armorPiercePercent": 35,
+    "allowed_mechas": ["mech_seraph_zero"],
+    "signatureMechaName": "Seraph-Zero",
+    "description": "ลำแสงพิพากษา MAP เฉพาะ Seraph-Zero กวาดล้างเส้นตรง 5 ช่องพร้อมเจาะเกราะ +35%"
   }
 ]

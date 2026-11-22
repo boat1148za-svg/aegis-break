@@ -1,0 +1,91 @@
+[
+  {
+    "id": "mod_zero_gravity",
+    "name": "Zero-G Sector",
+    "nameTh": "แรงโน้มถ่วงต่ำ (Zero-G)",
+    "icon": "🛸",
+    "conflictGroup": "mobility",
+    "description": "หุ่นทุกเครื่อง (ทั้งฝ่ายเราและศัตรู) เคลื่อนที่ไกลขึ้น +1 ช่อง",
+    "effects": {
+      "moveBonus": 1
+    }
+  },
+  {
+    "id": "mod_heavy_gravity",
+    "name": "Heavy Gravity",
+    "nameTh": "แรงโน้มถ่วงสูง",
+    "icon": "🪨",
+    "conflictGroup": "mobility",
+    "description": "หุ่นทุกเครื่องระยะเดินลดลง -1 ช่อง (ขั้นต่ำ 1 ช่อง)",
+    "effects": {
+      "moveBonus": -1
+    }
+  },
+  {
+    "id": "mod_glass_cannon",
+    "name": "Glass Cannon Protocol",
+    "nameTh": "โหมด Glass Cannon",
+    "icon": "💥",
+    "conflictGroup": "offense",
+    "description": "ดาเมจการโจมตีทั้งหมดในสนามรบแรงขึ้น +35%",
+    "effects": {
+      "allDamageMultiplier": 1.35
+    }
+  },
+  {
+    "id": "mod_overcharged_core",
+    "name": "Overcharged Reactor",
+    "nameTh": "เตาปฏิกรณ์โอเวอร์ชาร์จ",
+    "icon": "🔋",
+    "conflictGroup": "regen",
+    "description": "ทุกยูนิตฟื้นฟู EN เพิ่มขึ้นอีก +15 หน่วยทุกต้นเทิร์น",
+    "effects": {
+      "extraEnRegen": 15
+    }
+  },
+  {
+    "id": "mod_no_repair_zone",
+    "name": "Dead Zone Interference",
+    "nameTh": "อับสัญญาณซ่อมบำรุง",
+    "icon": "🚫",
+    "conflictGroup": "regen",
+    "description": "พื้นที่ Base ไม่มอบการฟื้นฟู HP ประจำเทิร์น",
+    "effects": {
+      "disableBaseRepair": true
+    }
+  },
+  {
+    "id": "mod_bounty_protocol",
+    "name": "Bounty Protocol",
+    "nameTh": "ค่าหัวล่าสังหาร",
+    "icon": "💰",
+    "conflictGroup": "economy",
+    "description": "ได้รับ Credits จากการกำจัดศัตรูเพิ่มขึ้น x1.5 ตลอดภารกิจ",
+    "effects": {
+      "creditsMultiplier": 1.5
+    }
+  },
+  {
+    "id": "mod_adrenaline_surge",
+    "name": "Adrenaline Surge",
+    "nameTh": "คลื่นจิตสังหารเริ่มต้น",
+    "icon": "🔥",
+    "conflictGroup": "will",
+    "description": "ฝ่ายผู้เล่นเริ่มต้นการรบด้วย Will +15 ทันที",
+    "effects": {
+      "startWillBonus": 15
+    }
+  },
+  {
+    "id": "mod_iron_vanguard",
+    "name": "Iron Vanguard",
+    "nameTh": "ศัตรูเสริมเกราะหนัก",
+    "icon": "🛡️",
+    "conflictGroup": "difficulty",
+    "description": "ศัตรูทุกตัวในสนามมี HP +25% และ Armor +150",
+    "effects": {
+      "enemyHpBonusPercent": 25,
+      "enemyArmorBonus": 150
+    }
+  }
+]

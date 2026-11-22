@@ -1,0 +1,72 @@
+[
+  {
+    "id": "ach_first_sortie",
+    "title": "First Sortie",
+    "description": "ออกปฏิบัติการรบจนจบรอบครั้งแรก (ชนะหรือแพ้)",
+    "icon": "🚀",
+    "rewardShards": 30
+  },
+  {
+    "id": "ach_first_victory",
+    "title": "Overlord Vanquished",
+    "description": "ปราบบอสประจำ Stage 3 สำเร็จและคว้าชัยชนะ",
+    "icon": "🏆",
+    "rewardShards": 80
+  },
+  {
+    "id": "ach_ace_pilot",
+    "title": "True Ace Pilot",
+    "description": "สะสม Kill ได้ตั้งแต่ 10 Kills ขึ้นไปในรอบเดียว",
+    "icon": "⭐",
+    "rewardShards": 60
+  },
+  {
+    "id": "ach_heavy_hitter",
+    "title": "Tactical Annihilator",
+    "description": "สร้างความเสียหายต่อ 1 การโจมตี 5,000+ ดาเมจ",
+    "icon": "💥",
+    "rewardShards": 70
+  },
+  {
+    "id": "ach_daily_challenger",
+    "title": "Daily Challenger",
+    "description": "เอาชนะแคมเปญในโหมด Daily Challenge Seed อย่างน้อย 1 รอบ",
+    "icon": "📅",
+    "rewardShards": 75
+  },
+  {
+    "id": "ach_seraph_commander",
+    "title": "Siege Sovereign",
+    "description": "นำหุ่นปืนใหญ่ Seraph-Zero คว้าชัยชนะเหนือแคมเปญ",
+    "icon": "🔭",
+    "rewardShards": 65
+  },
+  {
+    "id": "ach_endless_breaker",
+    "title": "Limit Breaker",
+    "description": "เข้าสู่โหมด Endless Overdrive Loop 2 ขึ้นไป",
+    "icon": "♾️",
+    "rewardShards": 120
+  },
+  {
+    "id": "ach_threat_3_clear",
+    "title": "Crimson Conqueror",
+    "description": "พิชิตแคมเปญที่ระดับ Threat Level 3 ขึ้นไป",
+    "icon": "🔥",
+    "rewardShards": 150
+  },
+  {
+    "id": "ach_veteran_pilot",
+    "title": "Veteran Commander",
+    "description": "คว้าชัยชนะครบ 3 รอบสะสมใน Hangar",
+    "icon": "🎖️",
+    "rewardShards": 90
+  },
+  {
+    "id": "ach_shard_hunter",
+    "title": "Astral Shard Hunter",
+    "description": "ได้รับ Astral Shards รวม 150+ จากการเล่นจบ 1 รอบ",
+    "icon": "✨",
+    "rewardShards": 60
+  }
+]

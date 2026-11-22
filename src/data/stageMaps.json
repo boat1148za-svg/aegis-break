@@ -1,0 +1,290 @@
+[
+  {
+    "id": "city_corridor",
+    "stage": 1,
+    "name": "Colony Outpost Corridor",
+    "rows": 8,
+    "cols": 8,
+    "tiles": [
+      ["normal", "normal", "normal", "high_ground", "normal", "normal", "repair_zone", "normal"],
+      ["normal", "normal", "obstacle", "normal", "explosive_core", "normal", "normal", "normal"],
+      ["normal", "high_ground", "obstacle", "normal", "normal", "explosive_core", "normal", "normal"],
+      ["normal", "normal", "normal", "plasma_hazard", "obstacle", "normal", "high_ground", "normal"],
+      ["normal", "normal", "obstacle", "normal", "plasma_hazard", "normal", "normal", "normal"],
+      ["normal", "high_ground", "normal", "normal", "normal", "obstacle", "explosive_core", "normal"],
+      ["normal", "normal", "normal", "normal", "normal", "normal", "normal", "normal"],
+      ["normal", "repair_zone", "normal", "normal", "high_ground", "normal", "normal", "normal"]
+    ],
+    "playerSpawns": [
+      { "row": 6, "col": 1 },
+      { "row": 6, "col": 0 },
+      { "row": 6, "col": 2 },
+      { "row": 5, "col": 1 }
+    ],
+    "enemySpawns": [
+      { "row": 1, "col": 5 },
+      { "row": 2, "col": 6 },
+      { "row": 0, "col": 3 },
+      { "row": 2, "col": 3 },
+      { "row": 3, "col": 6 },
+      { "row": 4, "col": 5 }
+    ],
+    "bossSpawn": { "row": 1, "col": 5 }
+  },
+  {
+    "id": "city_plaza",
+    "stage": 1,
+    "name": "Sector 04 - Central Plaza",
+    "rows": 8,
+    "cols": 8,
+    "tiles": [
+      ["normal", "normal", "high_ground", "normal", "normal", "normal", "normal", "repair_zone"],
+      ["normal", "obstacle", "normal", "explosive_core", "explosive_core", "normal", "normal", "normal"],
+      ["normal", "normal", "normal", "normal", "normal", "obstacle", "high_ground", "normal"],
+      ["normal", "high_ground", "plasma_hazard", "obstacle", "normal", "normal", "plasma_hazard", "normal"],
+      ["normal", "normal", "normal", "normal", "obstacle", "explosive_core", "normal", "normal"],
+      ["normal", "normal", "high_ground", "normal", "normal", "normal", "normal", "normal"],
+      ["normal", "repair_zone", "normal", "normal", "normal", "obstacle", "normal", "normal"],
+      ["normal", "normal", "normal", "normal", "high_ground", "normal", "normal", "normal"]
+    ],
+    "playerSpawns": [
+      { "row": 6, "col": 2 },
+      { "row": 6, "col": 1 },
+      { "row": 7, "col": 2 },
+      { "row": 5, "col": 2 }
+    ],
+    "enemySpawns": [
+      { "row": 0, "col": 5 },
+      { "row": 2, "col": 4 },
+      { "row": 2, "col": 6 },
+      { "row": 1, "col": 6 },
+      { "row": 4, "col": 6 },
+      { "row": 3, "col": 5 }
+    ],
+    "bossSpawn": { "row": 1, "col": 6 }
+  },
+  {
+    "id": "city_bridge",
+    "stage": 1,
+    "name": "Viaduct Suspension Bridge",
+    "rows": 8,
+    "cols": 8,
+    "tiles": [
+      ["plasma_hazard", "normal", "normal", "high_ground", "normal", "normal", "repair_zone", "plasma_hazard"],
+      ["plasma_hazard", "normal", "explosive_core", "normal", "normal", "normal", "normal", "plasma_hazard"],
+      ["normal", "normal", "normal", "obstacle", "explosive_core", "normal", "high_ground", "normal"],
+      ["normal", "high_ground", "normal", "normal", "normal", "obstacle", "normal", "normal"],
+      ["normal", "normal", "obstacle", "normal", "normal", "normal", "explosive_core", "normal"],
+      ["normal", "normal", "high_ground", "normal", "plasma_hazard", "normal", "normal", "normal"],
+      ["plasma_hazard", "normal", "normal", "normal", "normal", "normal", "normal", "plasma_hazard"],
+      ["plasma_hazard", "repair_zone", "normal", "normal", "high_ground", "normal", "normal", "plasma_hazard"]
+    ],
+    "playerSpawns": [
+      { "row": 6, "col": 2 },
+      { "row": 6, "col": 1 },
+      { "row": 6, "col": 3 },
+      { "row": 5, "col": 2 }
+    ],
+    "enemySpawns": [
+      { "row": 1, "col": 5 },
+      { "row": 2, "col": 6 },
+      { "row": 1, "col": 4 },
+      { "row": 3, "col": 6 },
+      { "row": 0, "col": 3 },
+      { "row": 2, "col": 5 }
+    ],
+    "bossSpawn": { "row": 1, "col": 5 }
+  },
+  {
+    "id": "space_belt",
+    "stage": 2,
+    "name": "Orbital Asteroid Belt",
+    "rows": 8,
+    "cols": 8,
+    "tiles": [
+      ["normal", "normal", "obstacle", "normal", "high_ground", "normal", "repair_zone", "normal"],
+      ["normal", "obstacle", "normal", "normal", "explosive_core", "normal", "normal", "normal"],
+      ["normal", "high_ground", "normal", "plasma_hazard", "explosive_core", "obstacle", "normal", "normal"],
+      ["normal", "normal", "obstacle", "normal", "normal", "high_ground", "plasma_hazard", "normal"],
+      ["normal", "plasma_hazard", "normal", "normal", "obstacle", "normal", "normal", "normal"],
+      ["normal", "normal", "high_ground", "explosive_core", "normal", "normal", "obstacle", "normal"],
+      ["normal", "normal", "normal", "normal", "normal", "normal", "normal", "normal"],
+      ["normal", "repair_zone", "normal", "high_ground", "normal", "normal", "normal", "normal"]
+    ],
+    "playerSpawns": [
+      { "row": 6, "col": 1 },
+      { "row": 6, "col": 0 },
+      { "row": 6, "col": 2 },
+      { "row": 5, "col": 2 }
+    ],
+    "enemySpawns": [
+      { "row": 1, "col": 5 },
+      { "row": 2, "col": 6 },
+      { "row": 0, "col": 4 },
+      { "row": 3, "col": 5 },
+      { "row": 1, "col": 6 },
+      { "row": 4, "col": 5 }
+    ],
+    "bossSpawn": { "row": 1, "col": 5 }
+  },
+  {
+    "id": "space_station",
+    "stage": 2,
+    "name": "Orbital Hangar Deck",
+    "rows": 8,
+    "cols": 8,
+    "tiles": [
+      ["normal", "high_ground", "normal", "normal", "normal", "explosive_core", "repair_zone", "normal"],
+      ["normal", "normal", "explosive_core", "normal", "normal", "normal", "normal", "normal"],
+      ["normal", "normal", "normal", "obstacle", "high_ground", "normal", "plasma_hazard", "normal"],
+      ["normal", "high_ground", "normal", "plasma_hazard", "normal", "obstacle", "normal", "normal"],
+      ["normal", "normal", "obstacle", "normal", "explosive_core", "normal", "high_ground", "normal"],
+      ["normal", "normal", "normal", "high_ground", "normal", "normal", "normal", "normal"],
+      ["normal", "repair_zone", "normal", "normal", "normal", "obstacle", "normal", "normal"],
+      ["normal", "normal", "normal", "normal", "normal", "normal", "normal", "normal"]
+    ],
+    "playerSpawns": [
+      { "row": 6, "col": 2 },
+      { "row": 6, "col": 1 },
+      { "row": 7, "col": 2 },
+      { "row": 5, "col": 3 }
+    ],
+    "enemySpawns": [
+      { "row": 1, "col": 5 },
+      { "row": 2, "col": 4 },
+      { "row": 1, "col": 6 },
+      { "row": 3, "col": 6 },
+      { "row": 4, "col": 6 },
+      { "row": 0, "col": 4 }
+    ],
+    "bossSpawn": { "row": 1, "col": 5 }
+  },
+  {
+    "id": "space_rift",
+    "stage": 2,
+    "name": "Astral Plasma Rift",
+    "rows": 8,
+    "cols": 8,
+    "tiles": [
+      ["normal", "normal", "normal", "plasma_hazard", "high_ground", "normal", "normal", "repair_zone"],
+      ["normal", "high_ground", "obstacle", "normal", "normal", "explosive_core", "normal", "normal"],
+      ["normal", "normal", "plasma_hazard", "normal", "normal", "explosive_core", "high_ground", "normal"],
+      ["normal", "normal", "normal", "obstacle", "plasma_hazard", "normal", "normal", "normal"],
+      ["normal", "high_ground", "explosive_core", "normal", "obstacle", "normal", "plasma_hazard", "normal"],
+      ["normal", "normal", "normal", "normal", "high_ground", "normal", "normal", "normal"],
+      ["normal", "repair_zone", "normal", "normal", "normal", "normal", "obstacle", "normal"],
+      ["normal", "normal", "normal", "normal", "normal", "normal", "normal", "normal"]
+    ],
+    "playerSpawns": [
+      { "row": 6, "col": 2 },
+      { "row": 6, "col": 1 },
+      { "row": 6, "col": 3 },
+      { "row": 5, "col": 1 }
+    ],
+    "enemySpawns": [
+      { "row": 1, "col": 6 },
+      { "row": 2, "col": 6 },
+      { "row": 0, "col": 4 },
+      { "row": 3, "col": 5 },
+      { "row": 4, "col": 5 },
+      { "row": 1, "col": 4 }
+    ],
+    "bossSpawn": { "row": 1, "col": 6 }
+  },
+  {
+    "id": "citadel_gate",
+    "stage": 3,
+    "name": "Aegis Citadel Outer Gate",
+    "rows": 8,
+    "cols": 8,
+    "tiles": [
+      ["normal", "normal", "high_ground", "obstacle", "normal", "normal", "repair_zone", "normal"],
+      ["normal", "explosive_core", "normal", "normal", "normal", "normal", "explosive_core", "normal"],
+      ["normal", "normal", "obstacle", "plasma_hazard", "high_ground", "obstacle", "normal", "normal"],
+      ["normal", "high_ground", "normal", "explosive_core", "explosive_core", "normal", "high_ground", "normal"],
+      ["normal", "normal", "plasma_hazard", "normal", "normal", "plasma_hazard", "normal", "normal"],
+      ["normal", "normal", "high_ground", "normal", "obstacle", "normal", "normal", "normal"],
+      ["normal", "repair_zone", "normal", "normal", "normal", "normal", "normal", "normal"],
+      ["normal", "normal", "normal", "high_ground", "normal", "normal", "normal", "normal"]
+    ],
+    "playerSpawns": [
+      { "row": 6, "col": 2 },
+      { "row": 6, "col": 1 },
+      { "row": 6, "col": 3 },
+      { "row": 5, "col": 2 }
+    ],
+    "enemySpawns": [
+      { "row": 1, "col": 5 },
+      { "row": 2, "col": 4 },
+      { "row": 2, "col": 6 },
+      { "row": 3, "col": 6 },
+      { "row": 1, "col": 4 },
+      { "row": 0, "col": 5 }
+    ],
+    "bossSpawn": { "row": 1, "col": 5 }
+  },
+  {
+    "id": "citadel_core",
+    "stage": 3,
+    "name": "Reactor Singularity Core",
+    "rows": 8,
+    "cols": 8,
+    "tiles": [
+      ["normal", "normal", "normal", "high_ground", "plasma_hazard", "normal", "repair_zone", "normal"],
+      ["normal", "obstacle", "explosive_core", "normal", "normal", "normal", "normal", "normal"],
+      ["normal", "high_ground", "plasma_hazard", "normal", "explosive_core", "obstacle", "high_ground", "normal"],
+      ["normal", "normal", "normal", "plasma_hazard", "normal", "normal", "explosive_core", "normal"],
+      ["normal", "normal", "obstacle", "normal", "high_ground", "plasma_hazard", "normal", "normal"],
+      ["normal", "high_ground", "normal", "normal", "normal", "normal", "normal", "normal"],
+      ["normal", "repair_zone", "normal", "normal", "normal", "obstacle", "normal", "normal"],
+      ["normal", "normal", "normal", "normal", "normal", "normal", "normal", "normal"]
+    ],
+    "playerSpawns": [
+      { "row": 6, "col": 2 },
+      { "row": 6, "col": 1 },
+      { "row": 6, "col": 3 },
+      { "row": 5, "col": 1 }
+    ],
+    "enemySpawns": [
+      { "row": 1, "col": 5 },
+      { "row": 2, "col": 6 },
+      { "row": 1, "col": 6 },
+      { "row": 4, "col": 4 },
+      { "row": 3, "col": 5 },
+      { "row": 0, "col": 3 }
+    ],
+    "bossSpawn": { "row": 1, "col": 5 }
+  },
+  {
+    "id": "citadel_throne",
+    "stage": 3,
+    "name": "Overlord Throne Chamber",
+    "rows": 8,
+    "cols": 8,
+    "tiles": [
+      ["plasma_hazard", "normal", "high_ground", "normal", "normal", "high_ground", "repair_zone", "plasma_hazard"],
+      ["normal", "obstacle", "normal", "explosive_core", "normal", "normal", "obstacle", "normal"],
+      ["normal", "normal", "normal", "explosive_core", "plasma_hazard", "normal", "normal", "normal"],
+      ["normal", "high_ground", "obstacle", "normal", "normal", "obstacle", "high_ground", "normal"],
+      ["normal", "normal", "plasma_hazard", "normal", "explosive_core", "normal", "normal", "normal"],
+      ["normal", "normal", "high_ground", "normal", "normal", "high_ground", "normal", "normal"],
+      ["normal", "repair_zone", "normal", "normal", "normal", "normal", "normal", "normal"],
+      ["plasma_hazard", "normal", "normal", "normal", "normal", "normal", "normal", "plasma_hazard"]
+    ],
+    "playerSpawns": [
+      { "row": 6, "col": 2 },
+      { "row": 6, "col": 1 },
+      { "row": 6, "col": 3 },
+      { "row": 5, "col": 2 }
+    ],
+    "enemySpawns": [
+      { "row": 1, "col": 5 },
+      { "row": 2, "col": 6 },
+      { "row": 1, "col": 4 },
+      { "row": 3, "col": 6 },
+      { "row": 0, "col": 5 },
+      { "row": 4, "col": 5 }
+    ],
+    "bossSpawn": { "row": 1, "col": 5 }
+  }
+]

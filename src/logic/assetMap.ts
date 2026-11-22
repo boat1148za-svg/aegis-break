@@ -4,6 +4,7 @@ const MECHA_SPRITE_MAP: Record<string, string> = {
   giga_rex: '/assets/mech_giga_rex.png',
   aegis_01: '/assets/mech_giga_rex.png',
   valkyrie_x: '/assets/mech_valkyrie_x.png',
+  mech_seraph_zero: '/assets/mech_seraph_zero.png',
   aegis_medic: '/assets/mech_aegis_medic.png',
   sentinel_mk1: '/assets/enemy_grunt.png',
   viper_scout: '/assets/enemy_grunt.png',
@@ -19,6 +20,7 @@ const MECHA_CUTIN_MAP: Record<string, string> = {
   giga_rex: '/assets/mech_giga_rex_cutin.png',
   aegis_01: '/assets/mech_giga_rex_cutin.png',
   valkyrie_x: '/assets/mech_valkyrie_x_cutin.png',
+  mech_seraph_zero: '/assets/mech_seraph_zero_cutin.png',
   aegis_medic: '/assets/mech_aegis_medic_cutin.png',
   boss_stage1_ares: '/assets/boss_stage1_ares_cutin.png',
   boss_stage2_chronos: '/assets/boss_stage2_chronos_cutin.png',
@@ -30,6 +32,7 @@ const MECHA_CUTIN_MAP: Record<string, string> = {
 const PILOT_PORTRAIT_MAP: Record<string, string> = {
   pilot_ren: '/assets/pilot_giga_rex.png',
   pilot_elena: '/assets/pilot_valkyrie_x.png',
+  pilot_seraph: '/assets/pilot_seraph.png',
   pilot_mina: '/assets/pilot_aegis_medic.png',
 };
 

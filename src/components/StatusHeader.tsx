@@ -6,10 +6,12 @@ interface StatusHeaderProps {
   isBusy: boolean;
   speedMultiplier: 1 | 2;
   cutInEnabled: boolean;
+  showThreatRange: boolean;
   bgmEnabled: boolean;
   sfxEnabled: boolean;
   onToggleSpeed: () => void;
   onToggleCutIn: () => void;
+  onToggleThreatRange: () => void;
   onToggleBgm: () => void;
   onToggleSfx: () => void;
   onEndTurn: () => void;
@@ -22,10 +24,12 @@ export function StatusHeader({
   isBusy,
   speedMultiplier,
   cutInEnabled,
+  showThreatRange,
   bgmEnabled,
   sfxEnabled,
   onToggleSpeed,
   onToggleCutIn,
+  onToggleThreatRange,
   onToggleBgm,
   onToggleSfx,
   onEndTurn,
@@ -74,6 +78,20 @@ export function StatusHeader({
             }`}
           >
             🎬 Cut-in: {cutInEnabled ? 'ON' : 'OFF'}
+          </button>
+
+          <button
+            type="button"
+            data-testid="toggle-threat-range-btn"
+            onClick={onToggleThreatRange}
+            title="แสดง/ซ่อนระยะอันตรายของศัตรูทั้งหมด (Threat Range Overlay)"
+            className={`cursor-pointer rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
+              showThreatRange
+                ? 'border-amber-400/90 bg-amber-500/25 text-amber-200 shadow-[0_0_12px_rgba(245,158,11,0.35)]'
+                : 'border-slate-700 bg-[#0b1324]/80 text-slate-300 hover:border-amber-400/60 hover:text-amber-200'
+            }`}
+          >
+            👁️ Threat{showThreatRange ? ': ON' : ''}
           </button>
 
           <button

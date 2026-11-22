@@ -6,7 +6,10 @@ import mechasJson from '../data/mechas.json';
 import pilotsJson from '../data/pilots.json';
 import unitsJson from '../data/units.json';
 import stage1MapJson from '../data/stage1Map.json';
+import stageMapsJson from '../data/stageMaps.json';
 import runNodesJson from '../data/runNodes.json';
+import { getActiveAceStatus } from './aceLogic';
+import { getCombinedModifierEffects } from './dailyLogic';
 import { getMetaBonuses, getThreatLevelConfig } from './metaLogic';
 import { applyUpgradesToMecha } from './upgradeLogic';
 import type {
@@ -31,7 +34,31 @@ export const mechas = mechasJson as MechaData[];
 export const pilots = pilotsJson as PilotData[];
 export const unitDefinitions = unitsJson as UnitDefinition[];
 export const stage1Map = stage1MapJson as StageMapData;
+export const stageMaps = stageMapsJson as StageMapData[];
 export const runNodes = runNodesJson as RunNodeData[];
+
+export function getStageMapsForStage(stage: 1 | 2 | 3): StageMapData[] {
+  const matched = stageMaps.filter((m) => m.stage === stage);
+  return matched.length > 0 ? matched : stageMaps;
+}
+
+export function getStageMapById(mapId?: string): StageMapData {
+  if (mapId) {
+    const found = stageMaps.find((m) => m.id === mapId);
+    if (found) return found;
+  }
+  return stageMaps[0] ?? stage1Map;
+}
+
+export function cloneStageMap(map: StageMapData): StageMapData {
+  return {
+    ...map,
+    tiles: map.tiles.map((row) => [...row]),
+    playerSpawns: map.playerSpawns?.map((p) => ({ ...p })),
+    enemySpawns: map.enemySpawns?.map((p) => ({ ...p })),
+    bossSpawn: map.bossSpawn ? { ...map.bossSpawn } : undefined,
+  };
+}
 
 export function getWeaponById(id: string): WeaponData | undefined {
   return weapons.find((w) => w.id === id);
@@ -87,7 +114,14 @@ export function getEffectivePlayerMecha(
       : getUnitWeapons({ mecha: def.mecha });
   const metaBonuses = meta
     ? getMetaBonuses(meta)
-    : { hpBonus: 0, spBonus: 0, armorBonus: 0, unlockSupportMech: false };
+    : {
+        hpBonus: 0,
+        spBonus: 0,
+        armorBonus: 0,
+        unlockSupportMech: false,
+        wingmanHealBonus: 0,
+        wingmanArmorBonus: 0,
+      };
 
   const metaEnhancedMecha: MechaData = {
     ...def.mecha,
@@ -114,12 +148,20 @@ export function getEffectivePlayerMaxSp(
 export function createRunPlayerState(
   unitDefId: string,
   meta?: MetaProgressState,
-  startingAllyIds: string[] = []
+  startingAllyIds: string[] = [],
+  dailyModifierIds: string[] = []
 ): RunPlayerState {
   const def = getUnitDefById(unitDefId) ?? getPlayableUnitDefs()[0];
   const metaBonuses = meta
     ? getMetaBonuses(meta)
-    : { hpBonus: 0, spBonus: 0, armorBonus: 0, unlockSupportMech: false };
+    : {
+        hpBonus: 0,
+        spBonus: 0,
+        armorBonus: 0,
+        unlockSupportMech: false,
+        wingmanHealBonus: 0,
+        wingmanArmorBonus: 0,
+      };
 
   const allies = new Set<string>(startingAllyIds);
   if (metaBonuses.unlockSupportMech) {
@@ -135,8 +177,19 @@ export function createRunPlayerState(
     sp: def.pilot.maxSp + metaBonuses.spBonus,
     maxWillBonus: 0,
     installedUpgradeIds: [],
-    equippedWeapons: getUnitWeapons({ mecha: def.mecha }).map((w) => ({ ...w })),
+    equippedWeapons: getUnitWeapons({ mecha: def.mecha }).map((w) => ({
+      ...w,
+      level: w.level ?? 1,
+    })),
     squadAllyIds: Array.from(allies).slice(0, maxAllies),
+    credits: 0,
+    killCount: 0,
+    wingmanKills: {},
+    wingmanHealBonus: 0,
+    wingmanArmorBonus: 0,
+    endlessLoop: 1,
+    maxSingleHitDamage: 0,
+    dailyModifierIds,
   };
 }
 
@@ -169,8 +222,43 @@ export function createBattleUnitsForNode(
   const effectiveMaxSp = getEffectivePlayerMaxSp(runPlayer, meta);
   const metaBonuses = meta
     ? getMetaBonuses(meta)
-    : { hpBonus: 0, spBonus: 0, armorBonus: 0, unlockSupportMech: false };
+    : {
+        hpBonus: 0,
+        spBonus: 0,
+        armorBonus: 0,
+        unlockSupportMech: false,
+        wingmanHealBonus: 0,
+        wingmanArmorBonus: 0,
+      };
   const threatCfg = getThreatLevelConfig(threatLevel);
+  const dailyEffects = getCombinedModifierEffects(
+    runPlayer.dailyModifierIds ?? []
+  );
+  const endlessExtraLoops = Math.max(0, (runPlayer.endlessLoop ?? 1) - 1);
+  const endlessHpMult =
+    1 + (endlessExtraLoops * combatConfig.endless.hpScalePerLoopPercent) / 100;
+  const endlessAtkMult =
+    1 +
+    (endlessExtraLoops * combatConfig.endless.attackScalePerLoopPercent) / 100;
+  const endlessArmorMult =
+    1 +
+    (endlessExtraLoops * combatConfig.endless.armorScalePerLoopPercent) / 100;
+
+  const adjustedMainMecha: MechaData = {
+    ...effectiveMecha,
+    move: Math.max(1, effectiveMecha.move + dailyEffects.moveBonus),
+  };
+
+  const nodeMap = getStageMapById(node.mapId);
+  const playerSpawnList = nodeMap.playerSpawns ?? [
+    playerDef.startPosition,
+    { row: 6, col: 0 },
+    { row: 6, col: 2 },
+  ];
+  const mainSpawn = playerSpawnList[0] ?? playerDef.startPosition;
+  const mainKills = runPlayer.killCount ?? 0;
+  const mainAce = getActiveAceStatus(playerDef.pilot.id, mainKills);
+  const mainMaxWill = combatConfig.will.max + runPlayer.maxWillBonus;
 
   const playerUnit: BattleUnit = {
     instanceId: playerDef.instanceId,
@@ -178,21 +266,27 @@ export function createBattleUnitsForNode(
     isMainUnit: true,
     icon: playerDef.icon,
     shortName: playerDef.shortName,
-    mecha: effectiveMecha,
+    mecha: adjustedMainMecha,
     pilot: {
       ...playerDef.pilot,
       maxSp: effectiveMaxSp,
     },
-    position: { ...playerDef.startPosition },
-    hp: Math.max(1, Math.min(effectiveMecha.maxHp, runPlayer.hp)),
-    en: Math.max(0, Math.min(effectiveMecha.maxEn, runPlayer.en)),
+    position: { ...mainSpawn },
+    hp: Math.max(1, Math.min(adjustedMainMecha.maxHp, runPlayer.hp)),
+    en: Math.max(0, Math.min(adjustedMainMecha.maxEn, runPlayer.en)),
     sp: Math.max(0, Math.min(effectiveMaxSp, runPlayer.sp)),
-    will: combatConfig.will.initial,
-    maxWill: combatConfig.will.max + runPlayer.maxWillBonus,
-    ammoByWeaponId: buildAmmoMap(effectiveMecha),
+    will: Math.min(
+      mainMaxWill,
+      combatConfig.will.initial +
+        mainAce.effects.startWillBonus +
+        dailyEffects.startWillBonus
+    ),
+    maxWill: mainMaxWill,
+    ammoByWeaponId: buildAmmoMap(adjustedMainMecha),
     hasMoved: false,
     hasActed: false,
     facing: 'right',
+    killCount: mainKills,
     activeSpirits: {
       valor: false,
       focus: false,
@@ -210,19 +304,38 @@ export function createBattleUnitsForNode(
   }
 
   const maxAllies = Math.max(0, combatConfig.support.maxSquadSize - 1);
-  const fallbackPositions = [
-    { row: 6, col: 0 },
-    { row: 6, col: 2 },
-  ];
+  const totalWingmanHealBonus =
+    metaBonuses.wingmanHealBonus + (runPlayer.wingmanHealBonus ?? 0);
+  const totalWingmanArmorBonus =
+    metaBonuses.wingmanArmorBonus + (runPlayer.wingmanArmorBonus ?? 0);
+  const fallbackPositions =
+    playerSpawnList.length > 1
+      ? playerSpawnList.slice(1)
+      : [
+          { row: 6, col: 0 },
+          { row: 6, col: 2 },
+        ];
 
   Array.from(allyIdsToDeploy)
     .slice(0, maxAllies)
     .forEach((allyId, idx) => {
       const allyDef = getUnitDefById(allyId);
       if (!allyDef) return;
-      const spawnPos = allyDef.startPosition ?? fallbackPositions[idx] ?? {
-        row: 6,
-        col: 2,
+      const spawnPos =
+        fallbackPositions[idx] ?? allyDef.startPosition ?? { row: 6, col: 2 };
+      const allyKills = runPlayer.wingmanKills?.[allyId] ?? 0;
+      const allyAce = getActiveAceStatus(allyDef.pilot.id, allyKills);
+      const enhancedAllyMecha: MechaData = {
+        ...allyDef.mecha,
+        move: Math.max(1, allyDef.mecha.move + dailyEffects.moveBonus),
+        armor: allyDef.mecha.armor + totalWingmanArmorBonus,
+        repairSkill: allyDef.mecha.repairSkill
+          ? {
+              ...allyDef.mecha.repairSkill,
+              healPercent:
+                allyDef.mecha.repairSkill.healPercent + totalWingmanHealBonus,
+            }
+          : undefined,
       };
       alliedUnits.push({
         instanceId: allyDef.instanceId,
@@ -230,18 +343,24 @@ export function createBattleUnitsForNode(
         isMainUnit: false,
         icon: allyDef.icon,
         shortName: allyDef.shortName,
-        mecha: allyDef.mecha,
+        mecha: enhancedAllyMecha,
         pilot: allyDef.pilot,
         position: { ...spawnPos },
-        hp: allyDef.mecha.maxHp,
-        en: allyDef.mecha.maxEn,
+        hp: enhancedAllyMecha.maxHp,
+        en: enhancedAllyMecha.maxEn,
         sp: allyDef.pilot.maxSp,
-        will: combatConfig.will.initial,
+        will: Math.min(
+          combatConfig.will.max,
+          combatConfig.will.initial +
+            allyAce.effects.startWillBonus +
+            dailyEffects.startWillBonus
+        ),
         maxWill: combatConfig.will.max,
-        ammoByWeaponId: buildAmmoMap(allyDef.mecha),
+        ammoByWeaponId: buildAmmoMap(enhancedAllyMecha),
         hasMoved: false,
         hasActed: false,
         facing: 'right',
+        killCount: allyKills,
         activeSpirits: {
           valor: false,
           focus: false,
@@ -258,9 +377,33 @@ export function createBattleUnitsForNode(
       const shortSuffix = spawn.labelSuffix ? `-${spawn.labelSuffix[0]}` : '';
 
       const scaledMaxHp = Math.round(
-        template.mecha.maxHp * (1 + threatCfg.enemyHpBonusPercent / 100)
+        template.mecha.maxHp *
+          (1 +
+            (threatCfg.enemyHpBonusPercent + dailyEffects.enemyHpBonusPercent) /
+              100) *
+          endlessHpMult
       );
-      const scaledArmor = template.mecha.armor + threatCfg.enemyArmorBonus;
+      const scaledArmor = Math.round(
+        template.mecha.armor * endlessArmorMult +
+          threatCfg.enemyArmorBonus +
+          dailyEffects.enemyArmorBonus
+      );
+      const scaledWeapons =
+        endlessExtraLoops > 0 && template.mecha.weapons
+          ? template.mecha.weapons.map((w) => ({
+              ...w,
+              power: Math.round(w.power * endlessAtkMult),
+            }))
+          : template.mecha.weapons;
+      const scaledDangerZoneWeapon =
+        endlessExtraLoops > 0 && template.mecha.dangerZoneWeapon
+          ? {
+              ...template.mecha.dangerZoneWeapon,
+              power: Math.round(
+                template.mecha.dangerZoneWeapon.power * endlessAtkMult
+              ),
+            }
+          : template.mecha.dangerZoneWeapon;
 
       return {
         instanceId: `${node.id}_${spawn.templateId}_${idx + 1}`,
@@ -271,8 +414,11 @@ export function createBattleUnitsForNode(
         mecha: {
           ...template.mecha,
           name: `${template.mecha.name}${suffix}`,
+          move: Math.max(1, template.mecha.move + dailyEffects.moveBonus),
           maxHp: scaledMaxHp,
           armor: scaledArmor,
+          weapons: scaledWeapons,
+          dangerZoneWeapon: scaledDangerZoneWeapon,
         },
         pilot: template.pilot,
         position: { ...spawn.position },

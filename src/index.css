@@ -736,3 +736,57 @@
   transform-style: preserve-3d;
   will-change: transform;
 }
+
+/* === Interactive Terrain Tiles (High Ground / Plasma Hazard / Explosive Core) === */
+@keyframes plasmaBoil {
+  0%, 100% {
+    box-shadow: inset 0 0 14px rgba(192, 38, 211, 0.55), 0 0 8px rgba(255, 42, 85, 0.35);
+    background-position: 0% 50%;
+  }
+  50% {
+    box-shadow: inset 0 0 22px rgba(255, 42, 85, 0.72), 0 0 14px rgba(192, 38, 211, 0.55);
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes explosivePulse {
+  0%, 100% {
+    box-shadow: inset 0 0 14px rgba(249, 115, 22, 0.52), 0 0 10px rgba(249, 115, 22, 0.35);
+  }
+  50% {
+    box-shadow: inset 0 0 22px rgba(255, 184, 0, 0.8), 0 0 16px rgba(255, 42, 85, 0.55);
+  }
+}
+
+.tile-high-ground-25d {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 2px 0 rgba(0, 240, 255, 0.65),
+    inset 0 -6px 0 rgba(8, 47, 73, 0.95),
+    0 6px 10px rgba(2, 6, 18, 0.85);
+  background-image:
+    linear-gradient(180deg, rgba(0, 240, 255, 0.16) 0%, rgba(15, 23, 42, 0.9) 75%),
+    linear-gradient(rgba(0, 240, 255, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.1) 1px, transparent 1px);
+  background-size: 100% 100%, 10px 10px, 10px 10px;
+}
+
+.tile-plasma-hazard-25d {
+  animation: plasmaBoil 1.8s ease-in-out infinite;
+  background-image: linear-gradient(
+    135deg,
+    rgba(88, 28, 135, 0.85),
+    rgba(190, 18, 60, 0.78),
+    rgba(112, 26, 117, 0.88)
+  );
+  background-size: 200% 200%;
+}
+
+.tile-explosive-25d {
+  animation: explosivePulse 1.3s ease-in-out infinite;
+  background-image: radial-gradient(
+    circle at center,
+    rgba(249, 115, 22, 0.32) 0%,
+    rgba(30, 27, 24, 0.94) 78%
+  );
+}

@@ -12,6 +12,7 @@ import { SpiritMenuPanel } from './SpiritMenuPanel';
 import { StatusHeader } from './StatusHeader';
 import { UnitInfoPanel } from './UnitInfoPanel';
 import { WeaponMenuPanel } from './WeaponMenuPanel';
+import { getActiveAceStatus } from '../logic/aceLogic';
 import { getBattleBackgroundUrl } from '../logic/assetMap';
 import { audioEngine } from '../logic/audioEngine';
 import {
@@ -20,19 +21,27 @@ import {
   resolveAttackStrike,
 } from '../logic/combatCalculator';
 import {
+  getCombinedModifierEffects,
+  getDailyModifiersByIds,
+} from '../logic/dailyLogic';
+import {
+  cloneStageMap,
   combatConfig,
   createBattleUnitsForNode,
+  getStageMapById,
   getTerrainById,
+  getUnitSpiritCommands,
   getUnitWeapons,
-  stage1Map,
 } from '../logic/dataLoader';
 import { getThreatLevelConfig } from '../logic/metaLogic';
 import {
+  canUseWeapon,
   chooseEnemyMoveTarget,
   chooseHitAndAwayRetreatTile,
   findBestWeaponInRange,
   getCardinalDirectionTo,
   getDangerZoneRowTiles,
+  getEnemyThreatTiles,
   getManhattanDistance,
   getMapLineTiles,
   getReachableTiles,
@@ -40,9 +49,13 @@ import {
   getWeaponRangeTiles,
   posKey,
   prepareUnitsForPhaseStart,
+  resolveExplosiveDetonation,
   resolveKnockback,
 } from '../logic/gridLogic';
-import { applySpiritCommand } from '../logic/spiritLogic';
+import {
+  applySpiritCommand,
+  canUseSpiritCommand,
+} from '../logic/spiritLogic';
 import {
   createInitialTurnState,
   transitionTurnState,
@@ -60,6 +73,7 @@ import type {
   RunNodeData,
   RunPlayerState,
   SpiritCommandData,
+  StageMapData,
   UnitAnimationType,
   WeaponData,
 } from '../logic/types';
@@ -103,11 +117,16 @@ export function BattleScreen({
   onBattleDefeat,
 }: BattleScreenProps) {
   const [turnState, setTurnState] = useState(createInitialTurnState);
+  const [battleMap, setBattleMap] = useState<StageMapData>(() =>
+    cloneStageMap(getStageMapById(node.mapId))
+  );
   const [units, setUnits] = useState<BattleUnit[]>(() =>
     createBattleUnitsForNode(runPlayer, node, meta, threatLevel)
   );
   const [speedMultiplier, setSpeedMultiplier] = useState<1 | 2>(1);
   const [cutInEnabled, setCutInEnabled] = useState<boolean>(true);
+  const [showThreatRange, setShowThreatRange] = useState<boolean>(false);
+  const [hoveredUnitId, setHoveredUnitId] = useState<string | null>(null);
   const [selectedWeaponId, setSelectedWeaponId] = useState<string | null>(null);
   const [mapDirection, setMapDirection] = useState<CardinalDirection>('up');
   const [dangerZones, setDangerZones] = useState<DangerZoneState[]>([]);
@@ -126,6 +145,8 @@ export function BattleScreen({
   const [screenShake, setScreenShake] = useState(false);
   const [heavyScreenShake, setHeavyScreenShake] = useState(false);
   const [ultimateFlash, setUltimateFlash] = useState(false);
+  const [earnedCredits, setEarnedCredits] = useState(0);
+  const [killsThisBattle, setKillsThisBattle] = useState(0);
   const [unitAnimations, setUnitAnimations] = useState<
     Record<string, UnitAnimationType>
   >({});
@@ -137,10 +158,23 @@ export function BattleScreen({
   const timersRef = useRef<number[]>([]);
   const floatSeqRef = useRef(0);
   const zoomTokenRef = useRef(0);
+  const creditedDeadEnemyIdsRef = useRef<Set<string>>(new Set());
+  const maxHitRef = useRef<number>(runPlayer.maxSingleHitDamage ?? 0);
   const pendingUltimateImpactRef = useRef<(() => void) | null>(null);
   const ultimateCutInTimerRef = useRef<number | null>(null);
+  const shortcutHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
 
   const battleBgUrl = getBattleBackgroundUrl(node);
+  const dailyModifiers = useMemo(
+    () => getDailyModifiersByIds(runPlayer.dailyModifierIds ?? []),
+    [runPlayer.dailyModifierIds]
+  );
+  const dailyEffects = useMemo(
+    () => getCombinedModifierEffects(runPlayer.dailyModifierIds ?? []),
+    [runPlayer.dailyModifierIds]
+  );
+  const globalDamageScale = dailyEffects.allDamageMultiplier;
+  const endlessLoop = runPlayer.endlessLoop ?? 1;
 
   const scaledDelay = (ms: number) =>
     Math.max(40, Math.round(ms / speedMultiplier));
@@ -245,8 +279,8 @@ export function BattleScreen({
     const token = ++zoomTokenRef.current;
     const midCol = (from.col + to.col) / 2;
     const midRow = (from.row + to.row) / 2;
-    const originX = ((midCol + 0.5) / stage1Map.cols) * 100;
-    const originY = ((midRow + 0.5) / stage1Map.rows) * 100;
+    const originX = ((midCol + 0.5) / battleMap.cols) * 100;
+    const originY = ((midRow + 0.5) / battleMap.rows) * 100;
     setCameraZoom({ originX, originY, scale: 1.25 });
     scheduleTimer(() => {
       if (zoomTokenRef.current === token) {
@@ -479,22 +513,143 @@ export function BattleScreen({
     );
   };
 
+  const applyKillCredit = (
+    unitsSnapshot: BattleUnit[],
+    killerUnitId?: string
+  ): BattleUnit[] => {
+    const newlyDeadEnemies = unitsSnapshot.filter(
+      (u) =>
+        u.faction === 'enemy' &&
+        u.hp <= 0 &&
+        !creditedDeadEnemyIdsRef.current.has(u.instanceId)
+    );
+    if (newlyDeadEnemies.length === 0) return unitsSnapshot;
+
+    let bountyTotal = 0;
+    for (const enemy of newlyDeadEnemies) {
+      creditedDeadEnemyIdsRef.current.add(enemy.instanceId);
+      const isBoss =
+        enemy.mecha.id.startsWith('boss_') ||
+        enemy.mecha.id === 'overlord_dreadnought';
+      const isElite =
+        Boolean(enemy.mecha.hasDangerZoneSkill) ||
+        enemy.mecha.id === 'crimson_commander';
+      bountyTotal += isBoss
+        ? combatConfig.economy.creditsPerBossKill
+        : isElite
+          ? combatConfig.economy.creditsPerEliteKill
+          : combatConfig.economy.creditsPerStandardKill;
+    }
+
+    bountyTotal = Math.round(bountyTotal * dailyEffects.creditsMultiplier);
+    const batchKills = newlyDeadEnemies.length;
+    setEarnedCredits((c) => c + bountyTotal);
+    setKillsThisBattle((k) => k + batchKills);
+
+    const targetKiller =
+      (killerUnitId
+        ? unitsSnapshot.find(
+            (u) => u.instanceId === killerUnitId && u.faction === 'player'
+          )
+        : undefined) ?? unitsSnapshot.find((u) => u.isMainUnit);
+
+    appendLog(
+      `🪙 +${bountyTotal} Credits จากการกำจัดศัตรู ${batchKills} เครื่อง!`
+    );
+
+    if (!targetKiller) return unitsSnapshot;
+
+    const prevKills = targetKiller.killCount ?? 0;
+    const nextKills = prevKills + batchKills;
+    const prevTier = getActiveAceStatus(targetKiller.pilot.id, prevKills).tier;
+    const nextStatus = getActiveAceStatus(targetKiller.pilot.id, nextKills);
+
+    if (nextStatus.tier > prevTier && nextStatus.badgeText) {
+      spawnFloatingText(targetKiller.position, `${nextStatus.badgeText}!`, 'heal');
+      appendLog(
+        `🌟 [ACE PILOT] ${targetKiller.pilot.name} (${nextKills} Kills) ปลดล็อก ${nextStatus.tierLabel}!`
+      );
+    }
+
+    return unitsSnapshot.map((u) =>
+      u.instanceId === targetKiller.instanceId
+        ? { ...u, killCount: nextKills }
+        : u
+    );
+  };
+
+  const detonateExplosiveCores = (
+    cores: GridPosition[],
+    currentMap: StageMapData,
+    currentUnits: BattleUnit[],
+    instigatorUnitId?: string
+  ): { map: StageMapData; units: BattleUnit[] } => {
+    const det = resolveExplosiveDetonation(cores, currentMap, currentUnits);
+    if (det.detonatedPositions.length === 0) {
+      return { map: currentMap, units: currentUnits };
+    }
+
+    setBattleMap(det.updatedMap);
+    audioEngine.playSfx('explosion');
+    setScreenShake(true);
+    scheduleTimer(() => setScreenShake(false), 520);
+
+    for (const corePos of det.detonatedPositions) {
+      spawnCanvasBurst('explosion', corePos, '#f97316');
+      spawnFloatingText(corePos, 'BOOM! AoE 3×3', 'collision');
+    }
+
+    if (det.detonatedPositions.length > 1) {
+      appendLog(
+        `🔥 [CHAIN REACTION] ปฏิกิริยาระเบิดลูกโซ่! ถังแกนพลังงานระเบิดต่อเนื่อง ${det.detonatedPositions.length} จุด!`
+      );
+    } else {
+      appendLog(
+        `💥 [EXPLOSIVE CORE] ถังแกนพลังงานระเบิดที่ ${formatCoord(det.detonatedPositions[0])} (AoE 3×3)!`
+      );
+    }
+
+    for (const hit of det.unitHits) {
+      triggerUnitAnimation(hit.unitId, 'hit');
+      spawnFloatingText(
+        hit.position,
+        hit.destroyed ? `-${hit.damage} 💥` : `-${hit.damage}`,
+        hit.destroyed ? 'destroyed' : 'damage'
+      );
+      appendLog(
+        `💥 ${hit.name} โดนแรงระเบิดถังพลังงาน -${hit.damage} DMG!${
+          hit.destroyed ? ' — ถูกทำลาย!' : ''
+        }`
+      );
+    }
+
+    let nextUnits = applyKillCredit(det.updatedUnits, instigatorUnitId);
+    nextUnits = checkBossPhase2Transition(nextUnits);
+    return { map: det.updatedMap, units: nextUnits };
+  };
+
   const applyKnockbackEffect = (
     attackerPos: GridPosition,
     targetId: string,
     weapon: WeaponData,
-    currentUnits: BattleUnit[]
-  ): BattleUnit[] => {
-    if (!weapon.knockback || weapon.knockback <= 0) return currentUnits;
+    currentUnits: BattleUnit[],
+    currentMap: StageMapData = battleMap,
+    instigatorUnitId?: string
+  ): { units: BattleUnit[]; map: StageMapData } => {
+    if (!weapon.knockback || weapon.knockback <= 0) {
+      return { units: currentUnits, map: currentMap };
+    }
 
     const targetBefore = currentUnits.find((u) => u.instanceId === targetId);
-    if (!targetBefore || targetBefore.hp <= 0) return currentUnits;
+    if (!targetBefore || targetBefore.hp <= 0) {
+      return { units: currentUnits, map: currentMap };
+    }
 
     const kb = resolveKnockback(
       attackerPos,
       targetId,
       weapon.knockback,
-      stage1Map,
+      currentMap,
       currentUnits
     );
 
@@ -506,8 +661,9 @@ export function BattleScreen({
         'collision'
       );
 
-      const blockerLabel =
-        kb.collisionType === 'obstacle'
+      const blockerLabel = kb.triggeredExplosivePos
+        ? 'ถังแกนพลังงาน Explosive Core'
+        : kb.collisionType === 'obstacle'
           ? 'สิ่งกีดขวาง'
           : kb.collisionType === 'border'
             ? 'ขอบสนาม'
@@ -540,7 +696,29 @@ export function BattleScreen({
       );
     }
 
-    return kb.updatedUnits;
+    if (kb.landedOnHazard && kb.hazardDamage && kb.hazardDamage > 0) {
+      spawnFloatingText(
+        kb.finalPosition,
+        `🔥 -${kb.hazardDamage} PLASMA`,
+        'collision'
+      );
+      appendLog(
+        `🔥 [Plasma Hazard] ${targetBefore.mecha.name} กระเด็นตกบ่อพลาสมาเดือด รับดาเมจไฟ -${kb.hazardDamage} HP!`
+      );
+    }
+
+    if (kb.triggeredExplosivePos) {
+      const exploded = detonateExplosiveCores(
+        [kb.triggeredExplosivePos],
+        currentMap,
+        kb.updatedUnits,
+        instigatorUnitId
+      );
+      return { units: exploded.units, map: exploded.map };
+    }
+
+    const credited = applyKillCredit(kb.updatedUnits, instigatorUnitId);
+    return { units: credited, map: currentMap };
   };
 
   const mainPlayerUnit = units.find((u) => u.isMainUnit);
@@ -593,9 +771,9 @@ export function BattleScreen({
     ) {
       return new Set<string>();
     }
-    const tiles = getReachableTiles(selectedUnit, stage1Map, units);
+    const tiles = getReachableTiles(selectedUnit, battleMap, units);
     return new Set(tiles.map(posKey));
-  }, [battleOutcome, turnState.phase, selectedUnit, selectedWeapon, units]);
+  }, [battleOutcome, turnState.phase, selectedUnit, selectedWeapon, units, battleMap]);
 
   const mapPreviewTiles = useMemo(() => {
     if (
@@ -611,8 +789,8 @@ export function BattleScreen({
     }
     const length =
       selectedWeapon.mapLength ?? combatConfig.mapWeapon.defaultLineLength;
-    return getMapLineTiles(selectedUnit.position, mapDirection, length, stage1Map);
-  }, [battleOutcome, turnState.phase, selectedUnit, selectedWeapon, mapDirection]);
+    return getMapLineTiles(selectedUnit.position, mapDirection, length, battleMap);
+  }, [battleOutcome, turnState.phase, selectedUnit, selectedWeapon, mapDirection, battleMap]);
 
   const mapPreviewTileKeys = useMemo(
     () => new Set(mapPreviewTiles.map(posKey)),
@@ -640,6 +818,42 @@ export function BattleScreen({
     return keys;
   }, [dangerZones]);
 
+  const threatTileKeys = useMemo(() => {
+    if (battleOutcome) return new Set<string>();
+    const keys = new Set<string>();
+    if (showThreatRange) {
+      for (const u of units) {
+        if (u.faction === 'enemy' && u.hp > 0) {
+          for (const k of getEnemyThreatTiles(u, battleMap, units)) {
+            keys.add(k);
+          }
+        }
+      }
+      return keys;
+    }
+
+    const hoveredEnemy = hoveredUnitId
+      ? units.find(
+          (u) =>
+            u.instanceId === hoveredUnitId && u.faction === 'enemy' && u.hp > 0
+        )
+      : undefined;
+    const focusEnemy =
+      hoveredEnemy ??
+      (selectedUnit?.faction === 'enemy' && selectedUnit.hp > 0
+        ? selectedUnit
+        : undefined);
+
+    return focusEnemy ? getEnemyThreatTiles(focusEnemy, battleMap, units) : keys;
+  }, [
+    battleOutcome,
+    showThreatRange,
+    hoveredUnitId,
+    selectedUnit,
+    units,
+    battleMap,
+  ]);
+
   const attackRangeTileKeys = useMemo(() => {
     if (
       battleOutcome ||
@@ -655,10 +869,10 @@ export function BattleScreen({
     const tiles = getWeaponRangeTiles(
       selectedUnit.position,
       selectedWeapon,
-      stage1Map
+      battleMap
     );
     return new Set(tiles.map(posKey));
-  }, [battleOutcome, turnState.phase, selectedUnit, selectedWeapon]);
+  }, [battleOutcome, turnState.phase, selectedUnit, selectedWeapon, battleMap]);
 
   const finishEnemyPhase = (
     currentUnits: BattleUnit[],
@@ -681,7 +895,8 @@ export function BattleScreen({
       const playerPrep = prepareUnitsForPhaseStart(
         currentUnits,
         'player',
-        stage1Map
+        battleMap,
+        runPlayer.dailyModifierIds ?? []
       );
       setUnits(playerPrep.units);
       playerPrep.regenLogs.forEach((msg) => appendLog(msg));
@@ -689,7 +904,7 @@ export function BattleScreen({
         spawnFloatingText(
           p.position,
           p.text,
-          p.text === 'STUNNED!' ? 'collision' : 'heal'
+          p.text === 'STUNNED!' || p.text.startsWith('🔥') ? 'collision' : 'heal'
         )
       );
 
@@ -723,7 +938,7 @@ export function BattleScreen({
         return;
       }
 
-      const targetPos = chooseEnemyMoveTarget(enemy, stage1Map, currentUnits);
+      const targetPos = chooseEnemyMoveTarget(enemy, battleMap, currentUnits);
       const fromCoord = formatCoord(enemy.position);
       const toCoord = formatCoord(targetPos);
 
@@ -768,7 +983,7 @@ export function BattleScreen({
         turnState.turnNumber % 2 === 1
       ) {
         const targetRow = playerTarget.position.row;
-        const rowTiles = getDangerZoneRowTiles(targetRow, stage1Map);
+        const rowTiles = getDangerZoneRowTiles(targetRow, battleMap);
         const newDz: DangerZoneState = {
           id: `dz-${movedEnemy.instanceId}-${turnState.turnNumber}`,
           casterId: movedEnemy.instanceId,
@@ -795,7 +1010,11 @@ export function BattleScreen({
         return;
       }
 
-      const enemyWeapon = findBestWeaponInRange(movedEnemy, playerTarget);
+      const enemyWeapon = findBestWeaponInRange(
+        movedEnemy,
+        playerTarget,
+        battleMap
+      );
       if (!enemyWeapon) {
         processNextEnemy(restQueue, updatedUnits, nextTurnNumber);
         return;
@@ -806,8 +1025,9 @@ export function BattleScreen({
           movedEnemy,
           playerTarget,
           enemyWeapon,
-          stage1Map,
-          updatedUnits
+          battleMap,
+          updatedUnits,
+          globalDamageScale
         );
         setTurnState((prev) =>
           transitionTurnState(prev, {
@@ -851,9 +1071,13 @@ export function BattleScreen({
 
     const defenderTerrain =
       getTerrainById(
-        stage1Map.tiles[actualDefender.position.row][
+        battleMap.tiles[actualDefender.position.row][
           actualDefender.position.col
         ]
+      ) ?? getTerrainById('normal')!;
+    const attackerEnemyTerrain =
+      getTerrainById(
+        battleMap.tiles[enemy.position.row][enemy.position.col]
       ) ?? getTerrainById('normal')!;
 
     triggerUnitAnimation(enemy.instanceId, 'attack');
@@ -863,7 +1087,12 @@ export function BattleScreen({
       actualDefender,
       enemyWeapon,
       defenderTerrain,
-      effectiveDefenseAction
+      effectiveDefenseAction,
+      Math.random(),
+      false,
+      globalDamageScale,
+      false,
+      attackerEnemyTerrain
     );
 
     const postEnemyStrikeAttacker: BattleUnit = {
@@ -894,6 +1123,8 @@ export function BattleScreen({
           ? ' [หลบหลีก +30%]'
           : '';
 
+    let currentRuntimeMap = battleMap;
+
     if (enemyStrike.hit) {
       triggerUnitAnimation(actualDefender.instanceId, 'hit');
       spawnFloatingText(
@@ -907,12 +1138,15 @@ export function BattleScreen({
         `🔥 ${enemy.mecha.name} ใช้ ${enemyWeapon.name} โจมตี ${actualDefender.mecha.name}${actionLabel} ทำดาเมจ ${enemyStrike.damage.toLocaleString()} (Hit ${enemyStrike.hitRate}%)`
       );
       if (!enemyStrike.destroyed && enemyWeapon.knockback) {
-        latestUnits = applyKnockbackEffect(
+        const kbOutcome = applyKnockbackEffect(
           enemy.position,
           actualDefender.instanceId,
           enemyWeapon,
-          latestUnits
+          latestUnits,
+          currentRuntimeMap
         );
+        latestUnits = kbOutcome.units;
+        currentRuntimeMap = kbOutcome.map;
         setUnits(latestUnits);
       }
     } else {
@@ -923,7 +1157,10 @@ export function BattleScreen({
       );
     }
 
-    const proceedAfterHitAndAway = (unitsBeforeRetreat: BattleUnit[]) => {
+    const proceedAfterHitAndAway = (
+      unitsBeforeRetreat: BattleUnit[],
+      mapSnapshot: StageMapData
+    ) => {
       const updatedEnemy = unitsBeforeRetreat.find(
         (u) => u.instanceId === postEnemyStrikeAttacker.instanceId
       );
@@ -937,7 +1174,7 @@ export function BattleScreen({
         const retreatPos = chooseHitAndAwayRetreatTile(
           updatedEnemy,
           updatedEnemy.mecha.hitAndAwaySteps,
-          stage1Map,
+          mapSnapshot,
           unitsBeforeRetreat
         );
         if (
@@ -978,8 +1215,14 @@ export function BattleScreen({
       scheduleTimer(() => {
         const enemyTerrain =
           getTerrainById(
-            stage1Map.tiles[postEnemyStrikeAttacker.position.row][
+            currentRuntimeMap.tiles[postEnemyStrikeAttacker.position.row][
               postEnemyStrikeAttacker.position.col
+            ]
+          ) ?? getTerrainById('normal')!;
+        const playerCounterTerrain =
+          getTerrainById(
+            currentRuntimeMap.tiles[postEnemyStrikePlayer.position.row][
+              postEnemyStrikePlayer.position.col
             ]
           ) ?? getTerrainById('normal')!;
 
@@ -996,7 +1239,10 @@ export function BattleScreen({
           enemyTerrain,
           'counter',
           Math.random(),
-          true
+          true,
+          globalDamageScale,
+          false,
+          playerCounterTerrain
         );
 
         latestUnits = latestUnits.map((u) => {
@@ -1008,9 +1254,9 @@ export function BattleScreen({
           }
           return u;
         });
-        setUnits(latestUnits);
 
         if (counterResult.hit) {
+          maxHitRef.current = Math.max(maxHitRef.current, counterResult.damage);
           triggerUnitAnimation(postEnemyStrikeAttacker.instanceId, 'hit');
           spawnFloatingText(
             postEnemyStrikeAttacker.position,
@@ -1035,13 +1281,16 @@ export function BattleScreen({
             );
           }
           if (!counterResult.destroyed && playerCounterWeapon.knockback) {
-            latestUnits = applyKnockbackEffect(
+            const kbOutcome = applyKnockbackEffect(
               postEnemyStrikePlayer.position,
               postEnemyStrikeAttacker.instanceId,
               playerCounterWeapon,
-              latestUnits
+              latestUnits,
+              currentRuntimeMap,
+              postEnemyStrikePlayer.instanceId
             );
-            setUnits(latestUnits);
+            latestUnits = kbOutcome.units;
+            currentRuntimeMap = kbOutcome.map;
           }
         } else {
           triggerUnitAnimation(postEnemyStrikeAttacker.instanceId, 'evade');
@@ -1051,10 +1300,15 @@ export function BattleScreen({
           );
         }
 
-        proceedAfterHitAndAway(latestUnits);
+        latestUnits = applyKillCredit(
+          latestUnits,
+          postEnemyStrikePlayer.instanceId
+        );
+        setUnits(latestUnits);
+        proceedAfterHitAndAway(latestUnits, currentRuntimeMap);
       }, 650);
     } else {
-      proceedAfterHitAndAway(latestUnits);
+      proceedAfterHitAndAway(latestUnits, currentRuntimeMap);
     }
   };
 
@@ -1091,6 +1345,89 @@ export function BattleScreen({
       }
     }
 
+    // Direct targeting of Explosive Core tile inside weapon range (100% Hit!)
+    const clickedTerrain = battleMap.tiles[pos.row]?.[pos.col];
+    if (
+      selectedUnit &&
+      selectedUnit.faction === 'player' &&
+      !selectedUnit.hasActed &&
+      selectedWeapon &&
+      !selectedWeapon.is_map_weapon &&
+      attackRangeTileKeys.has(clickedKey) &&
+      !clickedUnit &&
+      clickedTerrain === 'explosive_core'
+    ) {
+      const attacker = selectedUnit;
+      const weapon = selectedWeapon;
+      const dummyTarget: BattleUnit = {
+        ...attacker,
+        instanceId: `core-${pos.row}-${pos.col}`,
+        position: { ...pos },
+      };
+
+      setSelectedWeaponId(null);
+      setIsBusy(true);
+      triggerCombatZoom(attacker.position, pos, 950);
+      triggerUnitAnimation(attacker.instanceId, 'attack');
+      spawnCombatVfx(attacker, dummyTarget, weapon);
+
+      const nextAmmo = { ...attacker.ammoByWeaponId };
+      if (weapon.ammo !== null) {
+        nextAmmo[weapon.id] = Math.max(
+          0,
+          (nextAmmo[weapon.id] ?? weapon.ammo) - 1
+        );
+      }
+
+      let afterShotUnits: BattleUnit[] = units.map((u) =>
+        u.instanceId === attacker.instanceId
+          ? {
+              ...u,
+              en: Math.max(0, u.en - weapon.enCost),
+              ammoByWeaponId: nextAmmo,
+              hasMoved: true,
+              hasActed: true,
+              facing: getFacingBetween(
+                attacker.position,
+                pos,
+                u.facing ?? 'right'
+              ),
+              activeSpirits: { ...u.activeSpirits, valor: false },
+            }
+          : u
+      );
+
+      appendLog(
+        `🎯 ${attacker.mecha.name} ใช้ ${weapon.name} ยิงใส่ Explosive Core ที่ ${formatCoord(pos)} (100% Hit)!`
+      );
+
+      scheduleTimer(() => {
+        const exploded = detonateExplosiveCores(
+          [pos],
+          battleMap,
+          afterShotUnits,
+          attacker.instanceId
+        );
+        afterShotUnits = exploded.units;
+        const destroyedEnemy = exploded.units.some((after) => {
+          const before = units.find((u) => u.instanceId === after.instanceId);
+          return before && before.faction === 'enemy' && before.hp > 0 && after.hp <= 0;
+        });
+        if (destroyedEnemy) {
+          afterShotUnits = applyMomentumIfEligible(
+            attacker.instanceId,
+            afterShotUnits
+          );
+        }
+        setUnits(afterShotUnits);
+        setTurnState((prev) =>
+          transitionTurnState(prev, { type: 'CANCEL_SELECTION' })
+        );
+        scheduleTimer(() => setIsBusy(false), 550);
+      }, 220);
+      return;
+    }
+
     if (
       selectedUnit &&
       selectedUnit.faction === 'player' &&
@@ -1104,8 +1441,9 @@ export function BattleScreen({
         selectedUnit,
         clickedUnit,
         selectedWeapon,
-        stage1Map,
-        units
+        battleMap,
+        units,
+        globalDamageScale
       );
       setPendingForecast(forecast);
       return;
@@ -1249,7 +1587,15 @@ export function BattleScreen({
       u.instanceId === updatedCaster.instanceId ? updatedCaster : u
     );
 
-    if (targets.length === 0) {
+    const casterTerrain =
+      getTerrainById(
+        battleMap.tiles[caster.position.row][caster.position.col]
+      ) ?? getTerrainById('normal')!;
+    const hitExplosiveCores = mapPreviewTiles.filter(
+      (t) => battleMap.tiles[t.row]?.[t.col] === 'explosive_core'
+    );
+
+    if (targets.length === 0 && hitExplosiveCores.length === 0) {
       appendLog(
         `🌟 [MAP] ${caster.mecha.name} ยิง ${weapon.name} (-${weapon.enCost} EN) แต่ไม่มีศัตรูในเส้นทาง 4 ช่อง`
       );
@@ -1261,7 +1607,7 @@ export function BattleScreen({
       for (const target of targets) {
         const defenderTerrain =
           getTerrainById(
-            stage1Map.tiles[target.position.row][target.position.col]
+            battleMap.tiles[target.position.row][target.position.col]
           ) ?? getTerrainById('normal')!;
 
         const res = resolveAttackStrike(
@@ -1272,8 +1618,9 @@ export function BattleScreen({
           'counter',
           Math.random(),
           false,
-          1,
-          true
+          globalDamageScale,
+          true,
+          casterTerrain
         );
 
         // Preserve Valor across all targets in the same MAP blast, then clear after loop
@@ -1328,10 +1675,25 @@ export function BattleScreen({
           : u
       );
 
-      // Chain-Kill Momentum if MAP weapon destroyed at least 1 enemy!
+      if (hitExplosiveCores.length > 0) {
+        const exploded = detonateExplosiveCores(
+          hitExplosiveCores,
+          battleMap,
+          nextUnits,
+          updatedCaster.instanceId
+        );
+        nextUnits = exploded.units;
+      }
+
+      nextUnits = applyKillCredit(nextUnits, updatedCaster.instanceId);
+
+      // Chain-Kill Momentum if MAP weapon (or core explosion) destroyed at least 1 enemy!
       const destroyedAny = targets.some((t) => {
         const after = nextUnits.find((u) => u.instanceId === t.instanceId);
         return after && after.hp <= 0;
+      }) || nextUnits.some((after) => {
+        const before = units.find((u) => u.instanceId === after.instanceId);
+        return before && before.faction === 'enemy' && before.hp > 0 && after.hp <= 0;
       });
       if (destroyedAny) {
         nextUnits = applyMomentumIfEligible(updatedCaster.instanceId, nextUnits);
@@ -1449,7 +1811,11 @@ export function BattleScreen({
 
     const defenderTerrain =
       getTerrainById(
-        stage1Map.tiles[defender.position.row][defender.position.col]
+        battleMap.tiles[defender.position.row][defender.position.col]
+      ) ?? getTerrainById('normal')!;
+    const attackerTerrain =
+      getTerrainById(
+        battleMap.tiles[attacker.position.row][attacker.position.col]
       ) ?? getTerrainById('normal')!;
 
     const isUltimate = attackerWeapon.willRequired >= 120;
@@ -1459,7 +1825,12 @@ export function BattleScreen({
       defender,
       attackerWeapon,
       defenderTerrain,
-      'counter'
+      'counter',
+      Math.random(),
+      false,
+      globalDamageScale,
+      false,
+      attackerTerrain
     );
 
     const executePrimaryImpact = () => {
@@ -1483,6 +1854,7 @@ export function BattleScreen({
       });
 
       if (attackResult.hit) {
+        maxHitRef.current = Math.max(maxHitRef.current, attackResult.damage);
         audioEngine.playSfx(attackResult.destroyed ? 'explosion' : 'hit');
         triggerUnitAnimation(defender.instanceId, 'hit');
         spawnCanvasBurst(
@@ -1536,22 +1908,32 @@ export function BattleScreen({
         );
       }
 
+      let runtimeMapAfterAttack = battleMap;
       if (
         attackResult.hit &&
         !attackResult.destroyed &&
         attackerWeapon.knockback
       ) {
-        workingUnitsAfterAttack = applyKnockbackEffect(
+        const kbOutcome = applyKnockbackEffect(
           attacker.position,
           latestDefender.instanceId,
           attackerWeapon,
-          workingUnitsAfterAttack
+          workingUnitsAfterAttack,
+          runtimeMapAfterAttack,
+          finishedAttacker.instanceId
         );
+        workingUnitsAfterAttack = kbOutcome.units;
+        runtimeMapAfterAttack = kbOutcome.map;
         latestDefender =
           workingUnitsAfterAttack.find(
             (u) => u.instanceId === latestDefender.instanceId
           ) ?? latestDefender;
       }
+
+      workingUnitsAfterAttack = applyKillCredit(
+        workingUnitsAfterAttack,
+        finishedAttacker.instanceId
+      );
 
       if (attackResult.mobilityDebuffed > 0) {
         appendLog(
@@ -1601,7 +1983,11 @@ export function BattleScreen({
       const triggerEnemyCounterIfAlive = (defenderState: BattleUnit) => {
         const counterWeapon =
           defenderState.hp > 0
-            ? findBestWeaponInRange(defenderState, finishedAttacker)
+            ? findBestWeaponInRange(
+                defenderState,
+                finishedAttacker,
+                runtimeMapAfterAttack
+              )
             : null;
 
         if (!counterWeapon) {
@@ -1610,10 +1996,16 @@ export function BattleScreen({
         }
 
         scheduleTimer(() => {
-          const attackerTerrain =
+          const targetTerrain =
             getTerrainById(
-              stage1Map.tiles[finishedAttacker.position.row][
+              runtimeMapAfterAttack.tiles[finishedAttacker.position.row][
                 finishedAttacker.position.col
+              ]
+            ) ?? getTerrainById('normal')!;
+          const counterAttackerTerrain =
+            getTerrainById(
+              runtimeMapAfterAttack.tiles[defenderState.position.row][
+                defenderState.position.col
               ]
             ) ?? getTerrainById('normal')!;
 
@@ -1623,8 +2015,13 @@ export function BattleScreen({
             defenderState,
             finishedAttacker,
             counterWeapon,
-            attackerTerrain,
-            'counter'
+            targetTerrain,
+            'counter',
+            Math.random(),
+            false,
+            globalDamageScale,
+            false,
+            counterAttackerTerrain
           );
 
           setUnits((prev) =>
@@ -1671,6 +2068,19 @@ export function BattleScreen({
       // 2. Support Attack from adjacent ally (50% DMG, 0 EN) if defender survived
       if (latestDefender.hp > 0 && supportAttack) {
         scheduleTimer(() => {
+          const supportAllyTerrain =
+            getTerrainById(
+              runtimeMapAfterAttack.tiles[supportAttack.ally.position.row][
+                supportAttack.ally.position.col
+              ]
+            ) ?? getTerrainById('normal')!;
+          const supportTargetTerrain =
+            getTerrainById(
+              runtimeMapAfterAttack.tiles[latestDefender.position.row][
+                latestDefender.position.col
+              ]
+            ) ?? getTerrainById('normal')!;
+
           triggerUnitAnimation(supportAttack.ally.instanceId, 'attack');
           spawnCombatVfx(
             supportAttack.ally,
@@ -1681,17 +2091,19 @@ export function BattleScreen({
             supportAttack.ally,
             latestDefender,
             supportAttack.weapon,
-            defenderTerrain,
+            supportTargetTerrain,
             'counter',
             Math.random(),
             false,
-            combatConfig.support.supportAttackDamageMultiplier,
-            true
+            combatConfig.support.supportAttackDamageMultiplier *
+              globalDamageScale,
+            true,
+            supportAllyTerrain
           );
 
           latestDefender = supportResult.updatedDefender;
-          setUnits((prev) =>
-            prev.map((u) => {
+          setUnits((prev) => {
+            const mapped = prev.map((u) => {
               if (u.instanceId === supportResult.updatedAttacker.instanceId) {
                 return supportResult.updatedAttacker;
               }
@@ -1699,10 +2111,12 @@ export function BattleScreen({
                 return latestDefender;
               }
               return u;
-            })
-          );
+            });
+            return applyKillCredit(mapped, supportAttack.ally.instanceId);
+          });
 
           if (supportResult.hit) {
+            maxHitRef.current = Math.max(maxHitRef.current, supportResult.damage);
             triggerUnitAnimation(latestDefender.instanceId, 'hit');
             spawnCanvasBurst(
               supportResult.destroyed ? 'explosion' : 'impact',
@@ -1808,7 +2222,12 @@ export function BattleScreen({
       `--- จบเทิร์นผู้เล่น: เริ่ม ENEMY_PHASE (Turn ${turnState.turnNumber}) ---`
     );
 
-    const enemyPrep = prepareUnitsForPhaseStart(units, 'enemy', stage1Map);
+    const enemyPrep = prepareUnitsForPhaseStart(
+      units,
+      'enemy',
+      battleMap,
+      runPlayer.dailyModifierIds ?? []
+    );
     let workingUnits = enemyPrep.units;
 
     // Detonate any telegraphed Elite/Boss Danger Zones at the start of Enemy Phase!
@@ -1824,7 +2243,7 @@ export function BattleScreen({
           {
             id: dzVfxId,
             weaponType: 'ranged',
-            from: { row: dz.row, col: stage1Map.cols - 1 },
+            from: { row: dz.row, col: battleMap.cols - 1 },
             to: { row: dz.row, col: 0 },
             color: '#f43f5e',
           },
@@ -1850,10 +2269,14 @@ export function BattleScreen({
         if (caughtPlayers.length === 0) {
           appendLog(`💨 ยูนิตฝ่ายเราหลบออกจาก Danger Zone แถวที่ ${dz.row + 1} ได้ทันเวลา!`);
         } else {
+          const casterTerrain =
+            getTerrainById(
+              battleMap.tiles[caster.position.row][caster.position.col]
+            ) ?? getTerrainById('normal')!;
           for (const target of caughtPlayers) {
             const terrain =
               getTerrainById(
-                stage1Map.tiles[target.position.row][target.position.col]
+                battleMap.tiles[target.position.row][target.position.col]
               ) ?? getTerrainById('normal')!;
             const res = resolveAttackStrike(
               caster,
@@ -1863,8 +2286,9 @@ export function BattleScreen({
               'counter',
               Math.random(),
               false,
-              combatConfig.dangerZone.damageMultiplier,
-              true
+              combatConfig.dangerZone.damageMultiplier * globalDamageScale,
+              true,
+              casterTerrain
             );
             workingUnits = workingUnits.map((u) =>
               u.instanceId === res.updatedDefender.instanceId
@@ -1932,7 +2356,7 @@ export function BattleScreen({
       spawnFloatingText(
         p.position,
         p.text,
-        p.text === 'STUNNED!' ? 'collision' : 'heal'
+        p.text === 'STUNNED!' || p.text.startsWith('🔥') ? 'collision' : 'heal'
       )
     );
 
@@ -1946,7 +2370,12 @@ export function BattleScreen({
   const handleRetryBattle = () => {
     clearScheduledTimers();
     setIsBusy(false);
-    // Clean reset of camera/hitstop/cutin on retry
+    // Clean reset of camera/hitstop/cutin & destructible terrain on retry
+    creditedDeadEnemyIdsRef.current.clear();
+    maxHitRef.current = runPlayer.maxSingleHitDamage ?? 0;
+    setEarnedCredits(0);
+    setKillsThisBattle(0);
+    setBattleMap(cloneStageMap(getStageMapById(node.mapId)));
     setCameraZoom(null);
     setHitstopUnitId(null);
     setActiveCutIn(null);
@@ -1970,13 +2399,131 @@ export function BattleScreen({
     const survivingPlayer =
       units.find((u) => u.isMainUnit) ??
       units.find((u) => u.faction === 'player');
+
+    const nextWingmanKills = { ...(runPlayer.wingmanKills ?? {}) };
+    for (const u of units) {
+      if (u.faction === 'player' && !u.isMainUnit) {
+        nextWingmanKills[u.instanceId] = u.killCount ?? 0;
+      }
+    }
+
+    const totalVictoryCredits =
+      (runPlayer.credits ?? 0) +
+      earnedCredits +
+      (node.type === 'boss_battle'
+        ? combatConfig.economy.creditsPerStageClearBonus
+        : 0);
+
     onBattleVictory({
       ...runPlayer,
       hp: survivingPlayer ? survivingPlayer.hp : runPlayer.hp,
       en: survivingPlayer ? survivingPlayer.en : runPlayer.en,
       sp: survivingPlayer ? survivingPlayer.sp : runPlayer.sp,
+      credits: totalVictoryCredits,
+      killCount: survivingPlayer?.killCount ?? runPlayer.killCount ?? 0,
+      wingmanKills: nextWingmanKills,
+      maxSingleHitDamage: Math.max(
+        runPlayer.maxSingleHitDamage ?? 0,
+        maxHitRef.current
+      ),
     });
   };
+
+  shortcutHandlerRef.current = (e: KeyboardEvent) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const target = e.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+
+    if (activeCutIn) {
+      if (e.key === ' ' || e.key === 'Enter' || e.key === 'Escape') {
+        e.preventDefault();
+        handleSkipCutIn();
+      }
+      return;
+    }
+
+    if (pendingForecast) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setPendingForecast(null);
+      } else if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        handleConfirmAttack();
+      }
+      return;
+    }
+
+    if (pendingCounter || battleOutcome) return;
+    if (turnState.phase !== 'PLAYER_PHASE' || isBusy) return;
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (selectedWeaponId) {
+        setSelectedWeaponId(null);
+      } else if (turnState.selectedUnitId) {
+        setTurnState((prev) =>
+          transitionTurnState(prev, { type: 'CANCEL_SELECTION' })
+        );
+      }
+      return;
+    }
+
+    if (e.key >= '1' && e.key <= '5') {
+      if (selectedUnit && selectedUnit.faction === 'player' && !selectedUnit.hasActed) {
+        const slotIndex = Number(e.key) - 1;
+        const w = getUnitWeapons(selectedUnit)[slotIndex];
+        if (w && canUseWeapon(selectedUnit, w).usable) {
+          e.preventDefault();
+          handleSelectWeapon(w);
+        }
+      }
+      return;
+    }
+
+    const keyUpper = e.key.toUpperCase();
+    const spiritKeyMap: Record<string, string> = {
+      Q: 'valor',
+      W: 'focus',
+      R: 'iron_wall',
+      T: 'trust',
+    };
+
+    if (spiritKeyMap[keyUpper]) {
+      if (selectedUnit && selectedUnit.faction === 'player') {
+        const spiritId = spiritKeyMap[keyUpper];
+        const spirit = getUnitSpiritCommands(selectedUnit).find(
+          (s) => s.id === spiritId
+        );
+        if (
+          spirit &&
+          canUseSpiritCommand(selectedUnit, spirit, units).usable
+        ) {
+          e.preventDefault();
+          handleCastSpirit(spirit);
+        }
+      }
+      return;
+    }
+
+    if (keyUpper === 'E') {
+      e.preventDefault();
+      handleEndTurn();
+    }
+  };
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => shortcutHandlerRef.current(e);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const showSpiritMenu =
     !battleOutcome &&
@@ -2019,20 +2566,44 @@ export function BattleScreen({
       )}
 
       <StatusHeader
-        stageName={`STAGE ${node.stage ?? 1}/3 · F${node.floor ?? node.nodeNumber} · ${node.title}`}
+        stageName={`${endlessLoop > 1 ? `♾️ LOOP ${endlessLoop} · ` : ''}STAGE ${node.stage ?? 1}/3 · F${node.floor ?? node.nodeNumber} · ${node.title}`}
         turnState={turnState}
         isBusy={isBusy || battleOutcome !== null}
         speedMultiplier={speedMultiplier}
         cutInEnabled={cutInEnabled}
+        showThreatRange={showThreatRange}
         bgmEnabled={bgmEnabled}
         sfxEnabled={sfxEnabled}
         onToggleSpeed={() => setSpeedMultiplier((prev) => (prev === 1 ? 2 : 1))}
         onToggleCutIn={() => setCutInEnabled((prev) => !prev)}
+        onToggleThreatRange={() => setShowThreatRange((prev) => !prev)}
         onToggleBgm={onToggleBgm}
         onToggleSfx={onToggleSfx}
         onEndTurn={handleEndTurn}
         onReset={handleRetryBattle}
       />
+
+      {(endlessLoop > 1 || dailyModifiers.length > 0) && (
+        <div
+          className="mx-auto mt-2 flex max-w-6xl flex-wrap items-center gap-2 px-4 sm:px-6"
+          data-testid="battle-modifiers-bar"
+        >
+          {endlessLoop > 1 && (
+            <span className="font-sci-num rounded-full border border-fuchsia-400/70 bg-fuchsia-950/75 px-3 py-0.5 text-[11px] font-bold text-fuchsia-200">
+              ♾️ ENDLESS LOOP {endlessLoop}
+            </span>
+          )}
+          {dailyModifiers.map((mod) => (
+            <span
+              key={mod.id}
+              title={mod.description}
+              className="rounded-full border border-[#00f0ff]/45 bg-[#0b1324]/90 px-3 py-0.5 text-[11px] font-semibold text-cyan-200"
+            >
+              {mod.icon} {mod.name}
+            </span>
+          ))}
+        </div>
+      )}
 
       {battleOutcome && (
         <div
@@ -2049,9 +2620,9 @@ export function BattleScreen({
                 ? `🏆 NODE ${node.nodeNumber} CLEARED — กำจัดศัตรูทั้งหมดสำเร็จ!`
                 : '💥 RUN FAILED — หุ่นหลักถูกทำลาย (Permadeath)!'}
             </div>
-            <p className="text-xs opacity-80">
+            <p className="text-xs opacity-90">
               {battleOutcome === 'victory'
-                ? 'ค่า HP, EN และ SP คงเหลือจะถูกบันทึกไปยังด่านถัดไป (ค่า Will จะรีเซ็ตเป็น 100)'
+                ? `🪙 ได้รับ +${earnedCredits} Credits · ★ กำจัด ${killsThisBattle} ศัตรู · HP/EN/SP คงเหลือถูกบันทึกไปยังด่านถัดไป`
                 : 'กลับไปยังโรงเก็บหุ่น (Hangar) เพื่อเริ่มการเดินทางรอบใหม่'}
             </p>
           </div>
@@ -2081,15 +2652,16 @@ export function BattleScreen({
         </div>
       )}
 
-      <main className="mx-auto grid max-w-6xl gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <main className="mx-auto grid max-w-6xl gap-5 px-3 py-4 sm:px-6 sm:py-6 md:grid-cols-[minmax(0,1fr)_330px] lg:grid-cols-[minmax(0,1fr)_360px]">
         <BattleGrid
-          map={stage1Map}
+          map={battleMap}
           units={units}
           selectedUnitId={turnState.selectedUnitId}
           reachableTileKeys={reachableTileKeys}
           attackRangeTileKeys={attackRangeTileKeys}
           mapPreviewTileKeys={mapPreviewTileKeys}
           dangerZoneTileKeys={dangerZoneTileKeys}
+          threatTileKeys={threatTileKeys}
           floatingTexts={floatingTexts}
           unitAnimations={unitAnimations}
           combatVfx={combatVfx}
@@ -2097,15 +2669,29 @@ export function BattleScreen({
           cameraZoom={cameraZoom}
           hitstopUnitId={hitstopUnitId}
           onTileClick={handleTileClick}
+          onHoverUnit={setHoveredUnitId}
         />
 
-        <aside className="space-y-4">
+        <aside className="min-w-0 space-y-4">
+          <div
+            className="rounded-lg border border-slate-800/90 bg-[#0b1324]/75 px-3 py-1.5 text-[10px] text-slate-400"
+            data-testid="keyboard-shortcuts-hint"
+          >
+            <span className="font-orbitron font-bold text-[#00f0ff]">KEYS:</span>{' '}
+            <span className="font-sci-num text-slate-300">
+              1–5 Weapon · Q/W/R/T Spirit · E End Turn · Space/Enter Confirm · Esc Cancel
+            </span>
+          </div>
           <InstalledUpgradesBar
             installedUpgradeIds={runPlayer.installedUpgradeIds}
             compact
           />
 
-          <UnitInfoPanel unit={selectedUnit} map={stage1Map} />
+          <UnitInfoPanel
+            unit={selectedUnit}
+            map={battleMap}
+            credits={(runPlayer.credits ?? 0) + earnedCredits}
+          />
 
           {showSpiritMenu && selectedUnit && (
             <SpiritMenuPanel

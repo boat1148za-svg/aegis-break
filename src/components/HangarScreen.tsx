@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { rollDailyModifiers } from '../logic/dailyLogic';
 import {
   getPlayableUnitDefs,
   getUnitDefById,
@@ -13,20 +14,26 @@ import {
   getThreatLevelConfig,
   threatLevels,
 } from '../logic/metaLogic';
-import type { MetaProgressState } from '../logic/types';
+import type { MetaProgressState, RunHistoryEntry } from '../logic/types';
 import { AmbientBackdrop } from './AmbientBackdrop';
 import { CompendiumModal } from './CompendiumModal';
 import { MetaUpgradesModal } from './MetaUpgradesModal';
 import { MechaSprite } from './MechaSprite';
 import { PilotPortrait } from './PilotPortrait';
+import { RunHistoryModal } from './RunHistoryModal';
 
 interface HangarScreenProps {
   meta: MetaProgressState;
+  history: RunHistoryEntry[];
+  claimedAchievementIds: string[];
+  onClaimAchievement: (achievementId: string) => void;
   onStartRun: (
     unitDefId: string,
     startingAllyIds: string[],
     threatLevel: number,
-    seed?: number
+    seed?: number,
+    dailyModifierIds?: string[],
+    isDailyChallenge?: boolean
   ) => void;
   onPurchaseMetaUpgrade: (upgradeId: string) => void;
   onBackToTitle: () => void;
@@ -34,6 +41,9 @@ interface HangarScreenProps {
 
 export function HangarScreen({
   meta,
+  history,
+  claimedAchievementIds,
+  onClaimAchievement,
   onStartRun,
   onPurchaseMetaUpgrade,
   onBackToTitle,
@@ -51,6 +61,10 @@ export function HangarScreen({
   const [useDailySeed, setUseDailySeed] = useState(false);
   const [showMetaModal, setShowMetaModal] = useState(false);
   const [showCompendium, setShowCompendium] = useState(false);
+  const [showRecords, setShowRecords] = useState(false);
+
+  const dailySeed = getDailyChallengeSeed();
+  const dailyModifiers = rollDailyModifiers(dailySeed, 2);
 
   const activeThreatCfg = getThreatLevelConfig(selectedThreatLevel);
   const bonuses = getMetaBonuses(meta);
@@ -58,11 +72,14 @@ export function HangarScreen({
     bonuses.hpBonus > 0 ||
     bonuses.spBonus > 0 ||
     bonuses.armorBonus > 0 ||
-    bonuses.unlockSupportMech;
+    bonuses.unlockSupportMech ||
+    bonuses.wingmanHealBonus > 0 ||
+    bonuses.wingmanArmorBonus > 0;
 
   const selectedUnit =
     playableUnits.find((u) => u.instanceId === selectedId) ?? playableUnits[0];
   const selectedIsReal = selectedUnit?.archetype === 'Real Robot';
+  const selectedIsSiege = selectedUnit?.archetype === 'Siege Artillery';
   const selectedWeapons = selectedUnit
     ? getUnitWeapons({ mecha: selectedUnit.mecha })
     : [];
@@ -159,6 +176,16 @@ export function HangarScreen({
                     🩺 Support Mech Ready
                   </span>
                 )}
+                {bonuses.wingmanHealBonus > 0 && (
+                  <span className="font-sci-num rounded bg-teal-500/15 px-2 py-0.5 text-[11px] font-semibold text-teal-300">
+                    💉 +{bonuses.wingmanHealBonus}% Wingman Heal
+                  </span>
+                )}
+                {bonuses.wingmanArmorBonus > 0 && (
+                  <span className="font-sci-num rounded bg-indigo-500/20 px-2 py-0.5 text-[11px] font-semibold text-indigo-300">
+                    🔰 +{bonuses.wingmanArmorBonus} Wingman Armor
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -171,6 +198,14 @@ export function HangarScreen({
               className="cursor-pointer rounded-lg border border-slate-700 bg-[#0b1324]/85 px-3 py-2 text-xs font-bold text-slate-300 transition hover:border-[#00f0ff]/50 hover:text-white"
             >
               ← Title
+            </button>
+            <button
+              type="button"
+              data-testid="open-records-btn"
+              onClick={() => setShowRecords(true)}
+              className="cursor-pointer rounded-lg border border-[#ffb800]/55 bg-[#ffb800]/12 px-4 py-2 text-xs font-bold text-[#ffb800] transition hover:bg-[#ffb800]/25"
+            >
+              🏆 Records
             </button>
             <button
               type="button"
@@ -258,7 +293,9 @@ export function HangarScreen({
                   className={`h-36 w-36 sm:h-40 sm:w-40 ${
                     selectedIsReal
                       ? 'drop-shadow-[0_0_24px_rgba(0,240,255,0.55)]'
-                      : 'drop-shadow-[0_0_24px_rgba(255,184,0,0.55)]'
+                      : selectedIsSiege
+                        ? 'drop-shadow-[0_0_24px_rgba(129,140,248,0.6)]'
+                        : 'drop-shadow-[0_0_24px_rgba(255,184,0,0.55)]'
                   }`}
                 />
               </div>
@@ -277,19 +314,27 @@ export function HangarScreen({
                     className={`animate-spin-slow h-44 w-44 rounded-full border-2 border-dashed ${
                       selectedIsReal
                         ? 'border-[#00f0ff]/80 shadow-[0_0_26px_rgba(0,240,255,0.65)]'
-                        : 'border-[#ffb800]/85 shadow-[0_0_26px_rgba(255,184,0,0.65)]'
+                        : selectedIsSiege
+                          ? 'border-indigo-400/85 shadow-[0_0_26px_rgba(129,140,248,0.65)]'
+                          : 'border-[#ffb800]/85 shadow-[0_0_26px_rgba(255,184,0,0.65)]'
                     }`}
                   />
                   <div
                     className={`absolute h-30 w-30 rounded-full border-2 ${
                       selectedIsReal
                         ? 'border-[#00f0ff] bg-[#00f0ff]/20'
-                        : 'border-[#ffb800] bg-[#ffb800]/20'
+                        : selectedIsSiege
+                          ? 'border-indigo-400 bg-indigo-500/20'
+                          : 'border-[#ffb800] bg-[#ffb800]/20'
                     }`}
                   />
                   <div
                     className={`absolute h-16 w-16 rounded-full blur-md ${
-                      selectedIsReal ? 'bg-[#00f0ff]/45' : 'bg-[#ffb800]/45'
+                      selectedIsReal
+                        ? 'bg-[#00f0ff]/45'
+                        : selectedIsSiege
+                          ? 'bg-indigo-400/45'
+                          : 'bg-[#ffb800]/45'
                     }`}
                   />
                 </div>
@@ -308,7 +353,9 @@ export function HangarScreen({
                       className={`font-orbitron inline-block rounded px-2.5 py-0.5 text-[10px] font-bold tracking-widest uppercase ${
                         selectedIsReal
                           ? 'bg-[#00f0ff]/20 text-[#00f0ff]'
-                          : 'bg-[#ffb800]/20 text-[#ffb800]'
+                          : selectedIsSiege
+                            ? 'bg-indigo-500/25 text-indigo-300'
+                            : 'bg-[#ffb800]/20 text-[#ffb800]'
                       }`}
                     >
                       {selectedUnit.archetype ?? 'Mecha'} · LAUNCH SPEC
@@ -390,10 +437,11 @@ export function HangarScreen({
         )}
 
         {/* Unit Selection Switcher Cards */}
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-3">
           {playableUnits.map((unit) => {
             const isSelected = unit.instanceId === selectedId;
             const isRealRobot = unit.archetype === 'Real Robot';
+            const isSiege = unit.archetype === 'Siege Artillery';
             const effectiveHp = unit.mecha.maxHp + bonuses.hpBonus;
             const effectiveArmor = unit.mecha.armor + bonuses.armorBonus;
             const effectiveSp = unit.pilot.maxSp + bonuses.spBonus;
@@ -408,7 +456,9 @@ export function HangarScreen({
                   isSelected
                     ? isRealRobot
                       ? 'hud-panel ring-2 ring-[#00f0ff] shadow-[0_0_26px_rgba(0,240,255,0.22)]'
-                      : 'hud-panel-amber ring-2 ring-[#ffb800] shadow-[0_0_26px_rgba(255,184,0,0.22)]'
+                      : isSiege
+                        ? 'hud-panel ring-2 ring-indigo-400 shadow-[0_0_26px_rgba(129,140,248,0.28)]'
+                        : 'hud-panel-amber ring-2 ring-[#ffb800] shadow-[0_0_26px_rgba(255,184,0,0.22)]'
                     : 'hud-panel opacity-80 hover:opacity-100'
                 }`}
               >
@@ -431,7 +481,9 @@ export function HangarScreen({
                         className={`font-orbitron inline-block rounded px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase ${
                           isRealRobot
                             ? 'bg-[#00f0ff]/20 text-[#00f0ff]'
-                            : 'bg-[#ffb800]/20 text-[#ffb800]'
+                            : isSiege
+                              ? 'bg-indigo-500/25 text-indigo-300'
+                              : 'bg-[#ffb800]/20 text-[#ffb800]'
                         }`}
                       >
                         {unit.archetype ?? 'Mecha'}
@@ -662,9 +714,33 @@ export function HangarScreen({
               📅 DAILY CHALLENGE SEED
             </span>
             <span className="font-sci-num text-[11px] text-slate-400">
-              (#{getDailyChallengeSeed()})
+              (#{dailySeed})
             </span>
           </label>
+
+          {useDailySeed && (
+            <div
+              className="hud-panel grid w-full max-w-2xl gap-2.5 p-3.5 text-left sm:grid-cols-2"
+              data-testid="daily-modifiers-preview"
+            >
+              {dailyModifiers.map((mod) => (
+                <div
+                  key={mod.id}
+                  data-testid={`daily-modifier-${mod.id}`}
+                  data-conflict-group={mod.conflictGroup}
+                  className="rounded-lg border border-[#00f0ff]/35 bg-[#080c14]/85 px-3 py-2"
+                >
+                  <div className="flex items-center gap-2 text-xs font-bold text-cyan-200">
+                    <span>{mod.icon}</span>
+                    <span>{mod.name}</span>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-snug text-slate-400">
+                    {mod.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
 
           <button
             type="button"
@@ -674,7 +750,9 @@ export function HangarScreen({
                 selectedId,
                 deployMedic ? ['ally_aegis_medic'] : [],
                 selectedThreatLevel,
-                useDailySeed ? getDailyChallengeSeed() : createRandomSeed()
+                useDailySeed ? dailySeed : createRandomSeed(),
+                useDailySeed ? dailyModifiers.map((m) => m.id) : [],
+                useDailySeed
               )
             }
             className="hud-btn font-orbitron cursor-pointer border border-[#00f0ff]/80 bg-gradient-to-r from-cyan-600 via-[#00b8d4] to-blue-600 px-10 py-3.5 text-sm font-black tracking-wider text-white shadow-[0_0_28px_rgba(0,240,255,0.4)] transition hover:brightness-115 sm:text-base"
@@ -694,6 +772,16 @@ export function HangarScreen({
 
       {showCompendium && (
         <CompendiumModal onClose={() => setShowCompendium(false)} />
+      )}
+
+      {showRecords && (
+        <RunHistoryModal
+          history={history}
+          meta={meta}
+          claimedAchievementIds={claimedAchievementIds}
+          onClaimAchievement={onClaimAchievement}
+          onClose={() => setShowRecords(false)}
+        />
       )}
     </div>
   );

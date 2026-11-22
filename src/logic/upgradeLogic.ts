@@ -153,16 +153,24 @@ export function equipWeaponOnRunPlayer(
   return runPlayer;
 }
 
+export function getMaxWeaponLevel(runPlayer?: RunPlayerState): number {
+  if (runPlayer && (runPlayer.endlessLoop ?? 1) > 1) {
+    return combatConfigJson.endless.maxWeaponLevelEndless;
+  }
+  return combatConfigJson.weapons.maxLevel;
+}
+
 /**
- * Ranks up an equipped weapon by +1 level (up to maxLevel 3),
+ * Ranks up an equipped weapon by +1 level (up to maxWeaponLevel),
  * adding +250 Power and reducing EN cost by -2 (min 1).
  */
 export function rankUpWeaponOnRunPlayer(
   runPlayer: RunPlayerState,
   weaponId: string
 ): RunPlayerState {
-  const { maxLevel, rankUpPowerBonus, rankUpEnReduction, minEnCost } =
+  const { rankUpPowerBonus, rankUpEnReduction, minEnCost } =
     combatConfigJson.weapons;
+  const maxLevel = getMaxWeaponLevel(runPlayer);
 
   return {
     ...runPlayer,
@@ -224,8 +232,9 @@ export function rollPostBattleDraftChoices(
   count: number = 3,
   highTierOnly: boolean = false
 ): DraftChoice[] {
-  const { maxLevel, rankUpPowerBonus, rankUpEnReduction, minEnCost } =
+  const { rankUpPowerBonus, rankUpEnReduction, minEnCost } =
     combatConfigJson.weapons;
+  const maxLevel = getMaxWeaponLevel(runPlayer);
   const stageWeights =
     combatConfigJson.draftWeightsByStage[
       String(stage) as '1' | '2' | '3'
@@ -323,4 +332,43 @@ export function rollPostBattleDraftChoices(
   }
 
   return shuffle(result);
+}
+
+export type ShopItemRarity = 'rare' | 'epic' | 'legendary';
+
+export function getDraftChoiceRarity(choice: DraftChoice): ShopItemRarity {
+  if (choice.kind === 'weapon_rankup') {
+    return choice.nextLevel >= 3 ? 'legendary' : 'epic';
+  }
+  if (choice.kind === 'weapon') {
+    const w = choice.weapon;
+    const isSignature = Boolean(
+      w.allowed_mechas && !w.allowed_mechas.includes('ALL')
+    );
+    if (isSignature) return 'legendary';
+    if (w.armorPiercePercent || w.mobilityDebuffAmount || w.power >= 2000) {
+      return 'epic';
+    }
+    return 'rare';
+  }
+  const card = choice.card;
+  if (card.id === 'hot_blooded_core' || card.id === 'vampire_reactor') {
+    return 'legendary';
+  }
+  if (card.category === 'tactical_chips' || card.category === 'weapon_tech') {
+    return 'epic';
+  }
+  return 'rare';
+}
+
+export function getShopItemPrice(choice: DraftChoice): number {
+  const rarity = getDraftChoiceRarity(choice);
+  return combatConfigJson.economy.shopPrices[rarity];
+}
+
+export function getSellValue(basePrice: number): number {
+  return Math.max(
+    10,
+    Math.round((basePrice * combatConfigJson.economy.sellRefundPercent) / 100)
+  );
 }

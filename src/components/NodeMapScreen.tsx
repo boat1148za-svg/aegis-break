@@ -1,3 +1,4 @@
+import { getDailyModifiersByIds } from '../logic/dailyLogic';
 import {
   combatConfig,
   getEffectivePlayerMaxSp,
@@ -41,6 +42,8 @@ function getNodeIcon(type: NodeType): string {
       return '⚡';
     case 'hard_battle':
       return '🔥';
+    case 'shop':
+      return '🛒';
     case 'boss_battle':
       return '👹';
   }
@@ -51,6 +54,8 @@ function getNodeAccent(type: NodeType): string {
     case 'repair_event':
     case 'repair_supply':
       return 'border-emerald-400/75 text-emerald-300';
+    case 'shop':
+      return 'border-[#ffb800]/85 text-[#ffb800]';
     case 'elite_battle':
     case 'hard_battle':
       return 'border-[#ffb800]/80 text-[#ffb800]';
@@ -132,6 +137,14 @@ export function NodeMapScreen({
               </span>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {(runPlayer.endlessLoop ?? 1) > 1 && (
+                    <span
+                      data-testid="nodemap-endless-badge"
+                      className="font-sci-num rounded border border-fuchsia-400/75 bg-fuchsia-950/75 px-2.5 py-0.5 text-[11px] font-black tracking-wider text-fuchsia-200 uppercase"
+                    >
+                      ♾️ LOOP {runPlayer.endlessLoop}
+                    </span>
+                  )}
                   <span
                     data-testid="stage-indicator"
                     className="font-orbitron rounded border border-[#ffb800]/65 bg-[#ffb800]/15 px-2.5 py-0.5 text-[11px] font-black tracking-[0.2em] text-[#ffb800] uppercase"
@@ -142,6 +155,24 @@ export function NodeMapScreen({
                     FLOOR {totalFloorsCleared} / {totalCampaignFloors} CLEARED
                   </span>
                 </div>
+                {(runPlayer.dailyModifierIds?.length ?? 0) > 0 && (
+                  <div
+                    className="mt-1.5 flex flex-wrap gap-1.5"
+                    data-testid="nodemap-daily-modifiers"
+                  >
+                    {getDailyModifiersByIds(runPlayer.dailyModifierIds).map(
+                      (mod) => (
+                        <span
+                          key={mod.id}
+                          title={mod.description}
+                          className="rounded-full border border-[#00f0ff]/45 bg-[#0b1324]/90 px-2.5 py-0.5 text-[10px] font-semibold text-cyan-200"
+                        >
+                          {mod.icon} {mod.name}
+                        </span>
+                      )
+                    )}
+                  </div>
+                )}
                 <h1 className="font-orbitron mt-0.5 text-lg font-black text-slate-50 sm:text-xl">
                   {unitDef?.mecha.name}{' '}
                   <span className="font-sans text-sm font-medium text-slate-400">
@@ -153,6 +184,24 @@ export function NodeMapScreen({
 
             {/* Persistent Stats */}
             <div className="flex flex-wrap items-center gap-2.5 text-xs">
+              <div
+                className="rounded-lg border border-[#ffb800]/45 bg-[#0b1324]/85 px-3 py-2"
+                data-testid="run-stat-credits"
+              >
+                <span className="text-slate-400">🪙 </span>
+                <span className="font-sci-num font-bold text-[#ffb800]">
+                  {(runPlayer.credits ?? 0).toLocaleString()} Cr
+                </span>
+              </div>
+              <div
+                className="rounded-lg border border-cyan-500/30 bg-[#0b1324]/85 px-3 py-2"
+                data-testid="run-stat-kills"
+              >
+                <span className="text-slate-400">★ Kills </span>
+                <span className="font-sci-num font-bold text-cyan-300">
+                  {runPlayer.killCount ?? 0}
+                </span>
+              </div>
               <div
                 className="rounded-lg border border-[#00f0ff]/25 bg-[#0b1324]/85 px-3 py-2"
                 data-testid="run-stat-hp"

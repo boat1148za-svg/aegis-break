@@ -1,10 +1,15 @@
+import { getActiveAceStatus } from './aceLogic';
 import {
   combatConfig,
   getSpiritCommandById,
   getTerrainById,
   getUnitWeapons,
 } from './dataLoader';
-import { findBestWeaponInRange, getManhattanDistance } from './gridLogic';
+import {
+  findBestWeaponInRange,
+  getManhattanDistance,
+  resolveKnockback,
+} from './gridLogic';
 import { getUpgradeById, hasUpgrade } from './upgradeLogic';
 import type {
   BattleForecast,
@@ -21,6 +26,10 @@ import type {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+export function isSiegeLockActive(unit: BattleUnit): boolean {
+  return Boolean(unit.mecha.hasSiegeLock && !unit.hasMoved);
 }
 
 /**
@@ -45,9 +54,16 @@ export function calculateCritRate(
     ? combatConfig.overdrive.critRateBonus
     : 0;
   const weaponCritBonus = weapon?.critBonus ?? 0;
+  const aceCritBonus = getActiveAceStatus(
+    attacker.pilot.id,
+    attacker.killCount ?? 0
+  ).effects.critRateBonus;
   return Math.round(
     clamp(
-      combatConfig.critical.baseRate + overdriveBonus + weaponCritBonus,
+      combatConfig.critical.baseRate +
+        overdriveBonus +
+        weaponCritBonus +
+        aceCritBonus,
       0,
       100
     )
@@ -59,15 +75,30 @@ export function calculateHitRate(
   defender: BattleUnit,
   weapon: WeaponData,
   defenderTerrain: TerrainConfig,
-  defenseAction: DefenseAction = 'counter'
+  defenseAction: DefenseAction = 'counter',
+  attackerTerrain?: TerrainConfig
 ): number {
   const focusSpirit = getSpiritCommandById('focus');
-  const attackerHitBonus = attacker.activeSpirits.focus
+  const attackerFocusBonus = attacker.activeSpirits.focus
     ? (focusSpirit?.effects.hitBonus ?? 0)
     : 0;
+  const highGroundHitBonus = attackerTerrain?.accuracyBonus ?? 0;
+  const aceHitBonus = getActiveAceStatus(
+    attacker.pilot.id,
+    attacker.killCount ?? 0
+  ).effects.accuracyBonus;
+  const siegeHitBonus = isSiegeLockActive(attacker)
+    ? combatConfig.siegeLock.accuracyBonus
+    : 0;
+  const attackerHitBonus =
+    attackerFocusBonus + highGroundHitBonus + aceHitBonus + siegeHitBonus;
   const defenderFocusBonus = defender.activeSpirits.focus
     ? (focusSpirit?.effects.evadeBonus ?? 0)
     : 0;
+  const defenderAceEvadeBonus = getActiveAceStatus(
+    defender.pilot.id,
+    defender.killCount ?? 0
+  ).effects.evadeBonus;
   const actionEvadeBonus = combatConfig.defenseActions[defenseAction].evadeBonus;
 
   const rawHit =
@@ -78,6 +109,7 @@ export function calculateHitRate(
       defender.mecha.mobility +
       defenderTerrain.evadeBonus +
       defenderFocusBonus +
+      defenderAceEvadeBonus +
       actionEvadeBonus);
 
   return Math.round(
@@ -91,7 +123,8 @@ export function calculateDamage(
   weapon: WeaponData,
   defenseAction: DefenseAction = 'counter',
   isCounterAttack: boolean = false,
-  damageScale: number = 1
+  damageScale: number = 1,
+  attackerTerrain?: TerrainConfig
 ): { baseDamage: number; finalDamage: number } {
   const pilotStat =
     weapon.type === 'melee' ? attacker.pilot.melee : attacker.pilot.ranged;
@@ -143,13 +176,32 @@ export function calculateDamage(
       )
     : defender.mecha.armor;
 
-  // Armor-Piercing weapons ignore a % of defender's effective Armor
-  const piercePct = weapon.armorPiercePercent ?? 0;
+  // Armor-Piercing weapons, Ace armor pierce & Siege Lock ignore a % of defender's effective Armor
+  const aceEffects = getActiveAceStatus(
+    attacker.pilot.id,
+    attacker.killCount ?? 0
+  ).effects;
+  const siegePierceBonus = isSiegeLockActive(attacker)
+    ? combatConfig.siegeLock.armorPierceBonus
+    : 0;
+  const piercePct = Math.min(
+    100,
+    (weapon.armorPiercePercent ?? 0) +
+      aceEffects.armorPierceBonus +
+      siegePierceBonus
+  );
   const effectiveDefenderArmor = Math.round(
     armorAfterOverdrive * (1 - piercePct / 100)
   );
 
+  const aceFinisherMult =
+    weapon.willRequired >= 120 && aceEffects.finisherDamagePercent > 0
+      ? 1 + aceEffects.finisherDamagePercent / 100
+      : 1;
+
   const spiritMultiplier = attackerSpiritMult * defenderSpiritMult;
+  const terrainDamageMult =
+    1 + (attackerTerrain?.damageBonusPercent ?? 0) / 100;
   const actionMultiplier =
     combatConfig.defenseActions[defenseAction].damageTakenMultiplier;
 
@@ -161,6 +213,8 @@ export function calculateDamage(
         actionMultiplier *
         chipMultiplier *
         overdriveAttackMult *
+        terrainDamageMult *
+        aceFinisherMult *
         damageScale
     )
   );
@@ -178,14 +232,16 @@ export function previewCombat(
   defenderTerrain: TerrainConfig,
   defenseAction: DefenseAction = 'counter',
   isCounterAttack: boolean = false,
-  damageScale: number = 1
+  damageScale: number = 1,
+  attackerTerrain?: TerrainConfig
 ): CombatPreview {
   const hitRate = calculateHitRate(
     attacker,
     defender,
     weapon,
     defenderTerrain,
-    defenseAction
+    defenseAction,
+    attackerTerrain
   );
   const critRate = calculateCritRate(attacker, weapon);
   const { baseDamage, finalDamage } = calculateDamage(
@@ -194,7 +250,8 @@ export function previewCombat(
     weapon,
     defenseAction,
     isCounterAttack,
-    damageScale
+    damageScale,
+    attackerTerrain
   );
 
   return { hitRate, critRate, baseDamage, finalDamage };
@@ -208,7 +265,9 @@ export function findSupportAttacker(
   attacker: BattleUnit,
   defender: BattleUnit,
   allUnits: BattleUnit[],
-  defenderTerrain: TerrainConfig
+  defenderTerrain: TerrainConfig,
+  map?: StageMapData,
+  globalDamageScale: number = 1
 ): SupportAttackPreview | null {
   const adjacentAllies = allUnits.filter(
     (u) =>
@@ -226,6 +285,10 @@ export function findSupportAttacker(
   for (const ally of adjacentAllies) {
     const allyWeapons = getUnitWeapons(ally);
     if (allyWeapons.length === 0) continue;
+
+    const allyTerrain = map
+      ? getTerrainById(map.tiles[ally.position.row]?.[ally.position.col])
+      : undefined;
 
     const distToEnemy = getManhattanDistance(ally.position, defender.position);
     // Prefer primary weapon in range, or highest-power weapon in range; fallback to primary weapon
@@ -247,7 +310,8 @@ export function findSupportAttacker(
       defenderTerrain,
       'counter',
       false,
-      combatConfig.support.supportAttackDamageMultiplier
+      combatConfig.support.supportAttackDamageMultiplier * globalDamageScale,
+      allyTerrain
     );
 
     if (
@@ -293,7 +357,8 @@ export function buildBattleForecast(
   defender: BattleUnit,
   attackerWeapon: WeaponData,
   map: StageMapData,
-  allUnits: BattleUnit[] = []
+  allUnits: BattleUnit[] = [],
+  globalDamageScale: number = 1
 ): BattleForecast {
   const defenderTerrain =
     getTerrainById(map.tiles[defender.position.row][defender.position.col]) ??
@@ -307,26 +372,62 @@ export function buildBattleForecast(
     defender,
     attackerWeapon,
     defenderTerrain,
-    'counter'
+    'counter',
+    false,
+    globalDamageScale,
+    attackerTerrain
   );
 
   const supportAttack = findSupportAttacker(
     attacker,
     defender,
     allUnits,
-    defenderTerrain
+    defenderTerrain,
+    map,
+    globalDamageScale
   );
 
-  const defenderCounterWeapon = findBestWeaponInRange(defender, attacker);
+  const defenderCounterWeapon = findBestWeaponInRange(defender, attacker, map);
   const defenderPreview = defenderCounterWeapon
     ? previewCombat(
         defender,
         attacker,
         defenderCounterWeapon,
         attackerTerrain,
-        'counter'
+        'counter',
+        false,
+        globalDamageScale,
+        defenderTerrain
       )
     : null;
+
+  let knockbackWarning: BattleForecast['knockbackWarning'] = null;
+  if (attackerWeapon.knockback && attackerWeapon.knockback > 0) {
+    const kbSim = resolveKnockback(
+      attacker.position,
+      defender.instanceId,
+      attackerWeapon.knockback,
+      map,
+      allUnits.length > 0 ? allUnits : [attacker, defender]
+    );
+    if (kbSim.triggeredExplosivePos) {
+      knockbackWarning = {
+        kind: 'explosive_core',
+        label:
+          '💥 KNOCKBACK WARNING: แรงกระแทกจะผลักศัตรูชน Explosive Core (ระเบิด AoE 3×3 800 DMG)!',
+      };
+    } else if (kbSim.landedOnHazard) {
+      knockbackWarning = {
+        kind: 'plasma_hazard',
+        label: `🔥 KNOCKBACK WARNING: แรงกระแทกจะผลักศัตรูตกบ่อ Plasma Hazard (-${kbSim.hazardDamage ?? '10%'} HP)!`,
+      };
+    } else if (kbSim.collided) {
+      knockbackWarning = {
+        kind: 'collision',
+        label: `💫 KNOCKBACK COLLISION: จะชนสิ่งกีดขวางรับดาเมจเสริม +${kbSim.collisionDamage} & Stun!`,
+      };
+    }
+  }
 
   return {
     attacker,
@@ -336,6 +437,10 @@ export function buildBattleForecast(
     supportAttack,
     defenderCounterWeapon,
     defenderPreview,
+    attackerHighGround: attackerTerrain.id === 'high_ground',
+    defenderHighGround: defenderTerrain.id === 'high_ground',
+    attackerSiegeLock: isSiegeLockActive(attacker),
+    knockbackWarning,
   };
 }
 
@@ -344,7 +449,8 @@ export function buildCounterPrompt(
   player: BattleUnit,
   enemyWeapon: WeaponData,
   map: StageMapData,
-  allUnits: BattleUnit[] = []
+  allUnits: BattleUnit[] = [],
+  globalDamageScale: number = 1
 ): CounterPromptData {
   const playerTerrain =
     getTerrainById(map.tiles[player.position.row][player.position.col]) ??
@@ -358,24 +464,33 @@ export function buildCounterPrompt(
     player,
     enemyWeapon,
     playerTerrain,
-    'counter'
+    'counter',
+    false,
+    globalDamageScale,
+    enemyTerrain
   );
   const enemyPreviewDefend = previewCombat(
     enemy,
     player,
     enemyWeapon,
     playerTerrain,
-    'defend'
+    'defend',
+    false,
+    globalDamageScale,
+    enemyTerrain
   );
   const enemyPreviewEvade = previewCombat(
     enemy,
     player,
     enemyWeapon,
     playerTerrain,
-    'evade'
+    'evade',
+    false,
+    globalDamageScale,
+    enemyTerrain
   );
 
-  const playerCounterWeapon = findBestWeaponInRange(player, enemy);
+  const playerCounterWeapon = findBestWeaponInRange(player, enemy, map);
   const playerCounterPreview = playerCounterWeapon
     ? previewCombat(
         player,
@@ -383,7 +498,9 @@ export function buildCounterPrompt(
         playerCounterWeapon,
         enemyTerrain,
         'counter',
-        true
+        true,
+        globalDamageScale,
+        playerTerrain
       )
     : null;
 
@@ -399,7 +516,10 @@ export function buildCounterPrompt(
         supportDefender,
         enemyWeapon,
         supportDefenderTerrain,
-        'defend'
+        'defend',
+        false,
+        globalDamageScale,
+        enemyTerrain
       )
     : null;
 
@@ -426,7 +546,8 @@ export function resolveAttackStrike(
   randomValue: number = Math.random(),
   isCounterAttack: boolean = false,
   damageScale: number = 1,
-  freeEn: boolean = false
+  freeEn: boolean = false,
+  attackerTerrain?: TerrainConfig
 ): StrikeResolution {
   const preview = previewCombat(
     attacker,
@@ -435,7 +556,8 @@ export function resolveAttackStrike(
     defenderTerrain,
     defenseAction,
     isCounterAttack,
-    damageScale
+    damageScale,
+    attackerTerrain
   );
 
   const roll = Math.floor(randomValue * 100) + 1;

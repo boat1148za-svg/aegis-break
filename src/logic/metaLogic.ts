@@ -76,6 +76,8 @@ export function getMetaBonuses(meta: MetaProgressState): MetaBonuses {
   let spBonus = 0;
   let armorBonus = 0;
   let unlockSupportMech = false;
+  let wingmanHealBonus = 0;
+  let wingmanArmorBonus = 0;
 
   for (const upgrade of metaUpgrades) {
     const level = meta.upgradeLevels[upgrade.id] ?? 0;
@@ -93,9 +95,22 @@ export function getMetaBonuses(meta: MetaProgressState): MetaBonuses {
     if (upgrade.effectPerLevel.unlockSupportMech) {
       unlockSupportMech = true;
     }
+    if (upgrade.effectPerLevel.wingmanHealBonus) {
+      wingmanHealBonus += upgrade.effectPerLevel.wingmanHealBonus * level;
+    }
+    if (upgrade.effectPerLevel.wingmanArmorBonus) {
+      wingmanArmorBonus += upgrade.effectPerLevel.wingmanArmorBonus * level;
+    }
   }
 
-  return { hpBonus, spBonus, armorBonus, unlockSupportMech };
+  return {
+    hpBonus,
+    spBonus,
+    armorBonus,
+    unlockSupportMech,
+    wingmanHealBonus,
+    wingmanArmorBonus,
+  };
 }
 
 export function purchaseMetaUpgrade(

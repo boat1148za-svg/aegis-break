@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { isUnitInOverdrive } from '../logic/combatCalculator';
 import { getTerrainById } from '../logic/dataLoader';
 import { getUnitAt, posKey } from '../logic/gridLogic';
@@ -34,6 +35,7 @@ interface BattleGridProps {
   attackRangeTileKeys: Set<string>;
   mapPreviewTileKeys: Set<string>;
   dangerZoneTileKeys: Set<string>;
+  threatTileKeys?: Set<string>;
   floatingTexts: FloatingTextEvent[];
   unitAnimations: Record<string, UnitAnimationType>;
   combatVfx: CombatVfxEvent[];
@@ -41,6 +43,7 @@ interface BattleGridProps {
   cameraZoom: CameraZoomState | null;
   hitstopUnitId: string | null;
   onTileClick: (pos: GridPosition) => void;
+  onHoverUnit?: (unitId: string | null) => void;
 }
 
 const COL_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -51,6 +54,12 @@ function getTerrainStyle(terrainId: TerrainId): string {
       return 'tile-25d bg-emerald-950/70 border-emerald-400/55 hover:border-emerald-300/90';
     case 'obstacle':
       return 'tile-obstacle-25d border-[#ffb800]/45';
+    case 'explosive_core':
+      return 'tile-explosive-25d border-orange-400/80 hover:border-amber-300';
+    case 'high_ground':
+      return 'tile-high-ground-25d border-[#00f0ff]/65 hover:border-white/90';
+    case 'plasma_hazard':
+      return 'tile-plasma-hazard-25d border-fuchsia-400/75 hover:border-[#ff2a55]';
     case 'normal':
     default:
       return 'tile-25d bg-[#0b1324]/78 border-[#00f0ff]/22 hover:border-[#00f0ff]/75';
@@ -151,6 +160,80 @@ function ObstacleCrystalSvg() {
   );
 }
 
+function ExplosiveCoreSvg() {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      className="pointer-events-none h-9 w-9 sm:h-11 sm:w-11"
+      aria-hidden="true"
+      data-testid="explosive-core-svg"
+    >
+      <defs>
+        <radialGradient id="coreGlowGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#fff7ed" />
+          <stop offset="45%" stopColor="#ffb800" />
+          <stop offset="100%" stopColor="#ea580c" />
+        </radialGradient>
+      </defs>
+      <ellipse cx="33" cy="54" rx="18" ry="5.5" fill="rgba(2, 6, 18, 0.8)" />
+      {/* Reactor Drum Body */}
+      <rect
+        x="17"
+        y="16"
+        width="30"
+        height="34"
+        rx="6"
+        fill="#1e293b"
+        stroke="#fb923c"
+        strokeWidth="2"
+      />
+      {/* Hazard Caution Bands */}
+      <rect x="17" y="21" width="30" height="4" fill="#ffb800" opacity="0.85" />
+      <rect x="17" y="41" width="30" height="4" fill="#ef4444" opacity="0.85" />
+      {/* Glowing Plasma Barrel Core */}
+      <circle
+        cx="32"
+        cy="33"
+        r="7.5"
+        fill="url(#coreGlowGrad)"
+        className="animate-pulse"
+      />
+      <rect x="24" y="11" width="16" height="5" rx="2" fill="#475569" stroke="#fb923c" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function HighGroundIndicator() {
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="high-ground-indicator"
+      className="pointer-events-none absolute inset-0 overflow-hidden rounded-md"
+    >
+      {/* Top 2.5D Platform Ledge + Corner Chevron */}
+      <span className="absolute inset-x-1 top-1 h-0.5 rounded bg-[#00f0ff]/65" />
+      <span className="font-orbitron absolute top-0.5 right-1 text-[8px] font-black text-[#00f0ff] drop-shadow-[0_0_6px_rgba(0,240,255,0.9)]">
+        ▲HG
+      </span>
+    </div>
+  );
+}
+
+function PlasmaHazardIndicator() {
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="plasma-hazard-indicator"
+      className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden rounded-md"
+    >
+      <span className="absolute h-7 w-7 rounded-full border border-fuchsia-300/60 bg-[#ff2a55]/25 blur-[1px]" />
+      <span className="relative text-xs font-black text-fuchsia-200 drop-shadow-[0_0_6px_rgba(255,42,85,0.95)]">
+        ☣
+      </span>
+    </div>
+  );
+}
+
 export function BattleGrid({
   map,
   units,
@@ -159,6 +242,7 @@ export function BattleGrid({
   attackRangeTileKeys,
   mapPreviewTileKeys,
   dangerZoneTileKeys,
+  threatTileKeys,
   floatingTexts,
   unitAnimations,
   combatVfx,
@@ -166,44 +250,91 @@ export function BattleGrid({
   cameraZoom,
   hitstopUnitId,
   onTileClick,
+  onHoverUnit,
 }: BattleGridProps) {
+  const [hoveredTile, setHoveredTile] = useState<{
+    pos: GridPosition;
+    terrainId: TerrainId;
+    unitName?: string;
+  } | null>(null);
+
+  const hoveredTerrainCfg = hoveredTile
+    ? getTerrainById(hoveredTile.terrainId)
+    : null;
+
   return (
-    <div className="hud-panel overflow-hidden p-4 backdrop-blur-md">
-      {/* Legend */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
-        <span className="font-orbitron text-[11px] font-bold tracking-[0.16em] text-[#00f0ff] uppercase">
-          Tactical Grid ({map.rows}x{map.cols})
+    <div className="hud-panel relative overflow-hidden p-4 backdrop-blur-md">
+      {/* Legend + Dynamic Map Name */}
+      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
+        <span className="font-orbitron text-[11px] font-bold tracking-[0.14em] text-[#00f0ff] uppercase">
+          {map.name} ({map.rows}x{map.cols})
         </span>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-[#00f0ff]/35 bg-[#0b1324]" />
-            Normal
+        <div className="flex flex-wrap items-center gap-2.5 text-[11px]">
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded border border-emerald-400/70 bg-emerald-900/80" />
+            Base
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-emerald-400/70 bg-emerald-900/80" />
-            Base (HP/EN +10%)
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded border border-[#00f0ff]/80 bg-cyan-900/80" />
+            ▲ High Ground
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-[#ffb800]/60 bg-slate-800" />
-            Crystal Obstacle
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded border border-orange-400 bg-orange-950" />
+            Explosive Core
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-[#00f0ff] bg-[#00f0ff]/35" />
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded border border-fuchsia-400 bg-rose-900/80" />
+            ☣ Plasma
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded border border-[#00f0ff] bg-[#00f0ff]/35" />
             Move
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-[#ff2a55] bg-[#ff2a55]/40" />
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded border border-[#ff2a55] bg-[#ff2a55]/40" />
             Attack
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-fuchsia-400 bg-fuchsia-500/45" />
-            MAP AoE
+          <span className="flex items-center gap-1">
+            <span className="animate-danger-zone inline-block h-2.5 w-2.5 rounded border border-[#ff2a55]" />
+            Danger
           </span>
-          <span className="flex items-center gap-1.5">
-            <span className="animate-danger-zone inline-block h-3 w-3 rounded border border-[#ff2a55]" />
-            Danger Zone
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2.5 w-2.5 rounded border border-amber-400/80 bg-amber-500/25" />
+            Threat
           </span>
         </div>
+      </div>
+
+      {/* Interactive Terrain Info Tooltip Bar (updates on tile hover) */}
+      <div
+        data-testid="terrain-tooltip"
+        className="mb-3 flex min-h-8 flex-wrap items-center justify-between gap-2 rounded-lg border border-[#00f0ff]/25 bg-[#060a12]/88 px-3 py-1.5 text-xs"
+      >
+        {hoveredTile && hoveredTerrainCfg ? (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="font-sci-num rounded border border-[#00f0ff]/45 bg-[#00f0ff]/12 px-1.5 py-0.5 text-[10px] font-bold text-[#00f0ff]">
+                {COL_LABELS[hoveredTile.pos.col]}
+                {hoveredTile.pos.row + 1}
+              </span>
+              <span className="font-bold text-slate-100">
+                {hoveredTerrainCfg.name} ({hoveredTerrainCfg.label})
+              </span>
+              {hoveredTile.unitName && (
+                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#ffb800]">
+                  {hoveredTile.unitName}
+                </span>
+              )}
+            </div>
+            <span className="text-[11px] text-cyan-200/90">
+              {hoveredTerrainCfg.description ?? hoveredTerrainCfg.label}
+            </span>
+          </>
+        ) : (
+          <span className="text-[11px] text-slate-400">
+            💡 เลื่อนเมาส์เหนือช่องตารางเพื่อดูรายละเอียดพื้นผิว (High Ground, Explosive Core, Plasma Hazard)
+          </span>
+        )}
       </div>
 
       {/* Column headers */}
@@ -251,12 +382,17 @@ export function BattleGrid({
                 const isSelected = unit?.instanceId === selectedUnitId;
                 const isMapPreview = mapPreviewTileKeys.has(key);
                 const isDangerZone = dangerZoneTileKeys.has(key);
+                const isThreatZone = Boolean(threatTileKeys?.has(key));
                 const isAttackRange =
                   !isMapPreview && attackRangeTileKeys.has(key);
                 const isReachable =
                   !isMapPreview && !isAttackRange && reachableTileKeys.has(key);
                 const isAttackableEnemy =
                   (isAttackRange || isMapPreview) && unit?.faction === 'enemy';
+                const isTargetableCore =
+                  (isAttackRange || isMapPreview) &&
+                  !unit &&
+                  terrainId === 'explosive_core';
                 const isOverdrive = unit ? isUnitInOverdrive(unit) : false;
                 const isHitstop = unit?.instanceId === hitstopUnitId;
                 const tileFloats = floatingTexts.filter(
@@ -273,11 +409,35 @@ export function BattleGrid({
                     data-attack-range={isAttackRange ? 'true' : 'false'}
                     data-map-preview={isMapPreview ? 'true' : 'false'}
                     data-danger-zone={isDangerZone ? 'true' : 'false'}
+                    data-threat-zone={isThreatZone ? 'true' : 'false'}
+                    onMouseEnter={() => {
+                      setHoveredTile({
+                        pos,
+                        terrainId,
+                        unitName: unit?.mecha.name,
+                      });
+                      onHoverUnit?.(unit ? unit.instanceId : null);
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredTile(null);
+                      onHoverUnit?.(null);
+                    }}
+                    onFocus={() =>
+                      setHoveredTile({
+                        pos,
+                        terrainId,
+                        unitName: unit?.mecha.name,
+                      })
+                    }
                     onClick={() => onTileClick(pos)}
-                    title={`${COL_LABELS[colIdx]}${rowIdx + 1} - ${terrain?.name ?? terrainId}${unit ? ` (${unit.mecha.name})` : ''}${isDangerZone ? ' [⚠️ DANGER ZONE]' : ''}`}
+                    title={`${COL_LABELS[colIdx]}${rowIdx + 1} - ${terrain?.name ?? terrainId}${unit ? ` (${unit.mecha.name})` : ''}${isDangerZone ? ' [⚠️ DANGER ZONE]' : ''}${isThreatZone ? ' [👁️ ENEMY THREAT]' : ''}`}
                     className={`relative flex aspect-square cursor-pointer flex-col items-center justify-center rounded-md border transition-all ${getTerrainStyle(
                       terrainId
                     )} ${
+                      isThreatZone && !isDangerZone
+                        ? 'border-amber-400/75! bg-amber-500/18! shadow-[inset_0_0_12px_rgba(245,158,11,0.3)]'
+                        : ''
+                    } ${
                       isDangerZone ? 'animate-danger-zone' : ''
                     } ${
                       isReachable
@@ -294,6 +454,10 @@ export function BattleGrid({
                     } ${
                       isAttackableEnemy
                         ? 'ring-2! ring-rose-300! cursor-crosshair!'
+                        : ''
+                    } ${
+                      isTargetableCore
+                        ? 'ring-2! ring-orange-400! cursor-crosshair!'
                         : ''
                     } ${
                       unit?.overLimitActive
@@ -335,12 +499,19 @@ export function BattleGrid({
                     )}
 
                     {/* Terrain subtle indicator */}
+                    {terrainId === 'high_ground' && <HighGroundIndicator />}
+                    {!unit && terrainId === 'plasma_hazard' && (
+                      <PlasmaHazardIndicator />
+                    )}
                     {!unit && !isDangerZone && terrainId === 'repair_zone' && (
                       <span className="relative z-10 text-sm font-bold text-emerald-300 drop-shadow-[0_0_8px_rgba(52,211,153,0.95)]">
                         ✚
                       </span>
                     )}
                     {!unit && terrainId === 'obstacle' && <ObstacleCrystalSvg />}
+                    {!unit && terrainId === 'explosive_core' && (
+                      <ExplosiveCoreSvg />
+                    )}
 
                     {/* Reachable dot when empty */}
                     {!unit && isReachable && terrainId === 'normal' && (

@@ -85,6 +85,39 @@
     "floorsPerStage": 6,
     "stageClearHealPercent": 75
   },
+  "economy": {
+    "creditsPerStandardKill": 35,
+    "creditsPerEliteKill": 85,
+    "creditsPerBossKill": 200,
+    "creditsPerStageClearBonus": 120,
+    "shopPrices": {
+      "rare": 90,
+      "epic": 150,
+      "legendary": 230,
+      "forgeRankUp": 110,
+      "fieldRepair": 75,
+      "fieldRepairPercent": 35,
+      "baseReroll": 40,
+      "rerollIncrement": 15,
+      "wingmanUpgrade": 130
+    },
+    "sellRefundPercent": 35
+  },
+  "aceBonus": {
+    "tier1Kills": 5,
+    "tier2Kills": 10,
+    "wingmanTierKills": 3
+  },
+  "endless": {
+    "hpScalePerLoopPercent": 45,
+    "attackScalePerLoopPercent": 25,
+    "armorScalePerLoopPercent": 15,
+    "maxWeaponLevelEndless": 9
+  },
+  "siegeLock": {
+    "accuracyBonus": 20,
+    "armorPierceBonus": 25
+  },
   "draftWeightsByStage": {
     "1": {
       "power_parts": 36,

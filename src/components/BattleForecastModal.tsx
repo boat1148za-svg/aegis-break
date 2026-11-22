@@ -22,6 +22,10 @@ export function BattleForecastModal({
     supportAttack,
     defenderCounterWeapon,
     defenderPreview,
+    attackerHighGround,
+    defenderHighGround,
+    attackerSiegeLock,
+    knockbackWarning,
   } = forecast;
 
   const totalCombinedDamage =
@@ -101,7 +105,9 @@ export function BattleForecastModal({
             </div>
 
             <div className="mt-3 space-y-1.5 text-xs text-slate-300">
-              {(isUnitInOverdrive(attacker) ||
+              {(attackerHighGround ||
+                attackerSiegeLock ||
+                isUnitInOverdrive(attacker) ||
                 attacker.activeSpirits.valor ||
                 attacker.activeSpirits.focus ||
                 attacker.activeSpirits.ironWall) && (
@@ -109,6 +115,22 @@ export function BattleForecastModal({
                   className="mb-2 flex flex-wrap gap-1"
                   data-testid="forecast-attacker-buffs"
                 >
+                  {attackerSiegeLock && (
+                    <span
+                      className="rounded border border-indigo-400/75 bg-indigo-500/25 px-1.5 py-0.5 text-[10px] font-bold text-indigo-200"
+                      data-testid="forecast-siege-lock-badge"
+                    >
+                      🎯 SIEGE LOCK (+20% ACC · +25% PIERCE)
+                    </span>
+                  )}
+                  {attackerHighGround && (
+                    <span
+                      className="rounded border border-[#00f0ff]/60 bg-[#00f0ff]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#00f0ff]"
+                      data-testid="forecast-high-ground-badge"
+                    >
+                      ⛰️ HIGH GROUND (+15% HIT · +15% DMG · +1 RNG)
+                    </span>
+                  )}
                   {isUnitInOverdrive(attacker) && (
                     <span className="rounded bg-gradient-to-r from-rose-600/50 to-amber-500/40 px-1.5 py-0.5 text-[10px] font-bold text-amber-200">
                       ⚡ OVERDRIVE (+30% DMG / +25% CRIT)
@@ -255,13 +277,19 @@ export function BattleForecastModal({
             </div>
 
             <div className="mt-3 space-y-1.5 text-xs text-slate-300">
-              {(defender.activeSpirits.valor ||
+              {(defenderHighGround ||
+                defender.activeSpirits.valor ||
                 defender.activeSpirits.focus ||
                 defender.activeSpirits.ironWall) && (
                 <div
                   className="mb-2 flex flex-wrap gap-1"
                   data-testid="forecast-defender-buffs"
                 >
+                  {defenderHighGround && (
+                    <span className="rounded border border-[#ff2a55]/60 bg-[#ff2a55]/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-200">
+                      ⛰️ HIGH GROUND (+15% HIT · +15% DMG · +1 RNG)
+                    </span>
+                  )}
                   {defender.activeSpirits.valor && (
                     <span className="rounded bg-rose-500/25 px-1.5 py-0.5 text-[10px] font-bold text-rose-200">
                       🔥 Valor x2.0
@@ -343,6 +371,24 @@ export function BattleForecastModal({
             </div>
           </div>
         </div>
+
+        {/* Knockback Terrain Hazard / Explosive Warning */}
+        {knockbackWarning && (
+          <div className="px-6 pb-3">
+            <div
+              data-testid="forecast-knockback-warning"
+              className={`rounded-xl border px-4 py-2.5 text-xs font-extrabold ${
+                knockbackWarning.kind === 'explosive_core'
+                  ? 'border-orange-400/80 bg-orange-950/60 text-orange-200'
+                  : knockbackWarning.kind === 'plasma_hazard'
+                    ? 'border-fuchsia-400/80 bg-fuchsia-950/60 text-fuchsia-200'
+                    : 'border-[#ffb800]/75 bg-amber-950/50 text-[#ffb800]'
+              }`}
+            >
+              {knockbackWarning.label}
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 border-t border-slate-800 bg-slate-950/70 px-6 py-4">

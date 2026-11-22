@@ -198,6 +198,37 @@ export function MechaSprite({
     );
   }
 
+  // 4b. Seraph-Zero (Siege Artillery: shoulder twin rail cannons, halo sensor array, heavy stabilizers)
+  if (mechaId === 'mech_seraph_zero') {
+    return (
+      <svg
+        viewBox="0 0 64 64"
+        className={wrapperClass}
+        data-testid={`mecha-svg-${mechaId}`}
+        data-facing={facing}
+        style={{ transform: facingTransform }}
+      >
+        <ellipse cx="32" cy="59" rx="20" ry="3.5" fill="rgba(0,0,0,0.5)" />
+        {/* Dual Overhead Rail Cannons */}
+        <rect x="9" y="6" width="6" height="24" rx="1.5" fill="#1e293b" stroke="#38bdf8" strokeWidth="1.2" />
+        <rect x="49" y="6" width="6" height="24" rx="1.5" fill="#1e293b" stroke="#38bdf8" strokeWidth="1.2" />
+        <circle cx="12" cy="7" r="2.2" fill="#00f0ff" />
+        <circle cx="52" cy="7" r="2.2" fill="#00f0ff" />
+        {/* Orbital Sensor Halo */}
+        <path d="M16,22 A18,18 0 0,1 48,22" fill="none" stroke="#818cf8" strokeWidth="2.5" strokeDasharray="4 2" />
+        {/* Heavy Torso & Head */}
+        <polygon points="18,22 46,22 42,43 22,43" fill="#312e81" stroke="#a5b4fc" strokeWidth="1.5" />
+        <polygon points="27,13 37,13 35,22 29,22" fill="#4f46e5" stroke="#c7d2fe" strokeWidth="1.2" />
+        <rect x="29" y="16" width="6" height="2.5" rx="0.8" fill="#00f0ff" />
+        {/* Reactor Core */}
+        <polygon points="32,26 37,32 32,38 27,32" fill="#00f0ff" stroke="#e0f2fe" strokeWidth="1" />
+        {/* Anchor Stabilizer Legs */}
+        <polygon points="19,43 29,43 26,57 14,57" fill="#1e1b4b" stroke="#818cf8" strokeWidth="1.3" />
+        <polygon points="35,43 45,43 50,57 38,57" fill="#1e1b4b" stroke="#818cf8" strokeWidth="1.3" />
+      </svg>
+    );
+  }
+
   // 5. Overlord Dreadnought (Boss: Towering crowned silhouette, cannons, crimson core)
   if (mechaId === 'overlord_dreadnought' || mechaId === 'aegis_omega') {
     return (

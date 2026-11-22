@@ -166,6 +166,33 @@ export function PilotPortrait({
     );
   }
 
+  // 4b. Commander Iris Sterling (Seraph-Zero pilot: silver bob hair, tactical eyepiece, crisp officer collar)
+  if (pilotId === 'pilot_seraph') {
+    return (
+      <svg
+        viewBox="0 0 64 64"
+        className={`rounded-lg border border-indigo-400/50 bg-slate-950 ${className}`}
+        data-testid={`pilot-portrait-${pilotId}`}
+        aria-label="Commander Iris Sterling"
+      >
+        <rect width="64" height="64" fill="#0f172a" />
+        {/* Officer Uniform & Cape Collar */}
+        <path d="M11,64 L19,44 L45,44 L53,64 Z" fill="#312e81" stroke="#a5b4fc" strokeWidth="1.4" />
+        <polygon points="24,44 32,54 40,44" fill="#e0e7ff" />
+        <rect x="28" y="38" width="8" height="8" fill="#fde68a" />
+        {/* Face */}
+        <path d="M21,24 C21,36 26,41 32,41 C38,41 43,36 43,24 C43,16 38,12 32,12 C26,12 21,16 21,24 Z" fill="#fef3c7" />
+        {/* Silver Hair */}
+        <path d="M18,28 C18,14 24,9 32,9 C40,9 46,14 46,28 L42,21 L32,18 L22,21 Z" fill="#e2e8f0" />
+        {/* Eyes + Targeting Scouter */}
+        <circle cx="26.5" cy="27.5" r="1.6" fill="#1e1b4b" />
+        <rect x="33" y="24.5" width="9" height="5.5" rx="1.5" fill="rgba(0,240,255,0.35)" stroke="#00f0ff" strokeWidth="1.2" />
+        <circle cx="37.5" cy="27.5" r="1.4" fill="#00f0ff" />
+        <line x1="29" y1="35" x2="35" y2="35" stroke="#b45309" strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
   // 5. Boss / Commander / Enemy AI Portraits
   if (pilotId === 'ai_boss_overlord' || pilotId === 'ai_commander') {
     const isBoss = pilotId === 'ai_boss_overlord';

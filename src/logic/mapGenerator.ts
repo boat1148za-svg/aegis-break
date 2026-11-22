@@ -1,32 +1,23 @@
-import { stage1Map, unitDefinitions } from './dataLoader';
+import {
+  getStageMapsForStage,
+  stage1Map,
+  unitDefinitions,
+} from './dataLoader';
+import {
+  createRandomSeed,
+  getDailyChallengeSeed,
+  mulberry32,
+} from './prng';
 import type {
   BranchingMapNode,
   BranchingStageMap,
   EnemySpawnConfig,
   GridPosition,
   NodeType,
+  StageMapData,
 } from './types';
 
-export function mulberry32(seed: number): () => number {
-  let t = seed >>> 0;
-  return () => {
-    t += 0x6d2b79f5;
-    let x = Math.imul(t ^ (t >>> 15), 1 | t);
-    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
-    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-export function createRandomSeed(): number {
-  return Math.floor(100000 + Math.random() * 899999);
-}
-
-export function getDailyChallengeSeed(date: Date = new Date()): number {
-  const y = date.getUTCFullYear();
-  const m = date.getUTCMonth() + 1;
-  const d = date.getUTCDate();
-  return y * 10000 + m * 100 + d;
-}
+export { createRandomSeed, getDailyChallengeSeed, mulberry32 };
 
 const STAGE_TITLES: Record<1 | 2 | 3, string> = {
   1: 'STAGE 1 · OUTER COLONY PERIMETER',
@@ -70,7 +61,13 @@ const BATTLE_TITLES: Record<1 | 2 | 3, Record<'standard' | 'elite', string[]>> =
   },
 };
 
-function getValidEnemySpawnSlots(): GridPosition[] {
+function getValidEnemySpawnSlots(map: StageMapData = stage1Map): GridPosition[] {
+  if (map.enemySpawns && map.enemySpawns.length > 0) {
+    return map.enemySpawns.filter((pos) => {
+      const tile = map.tiles[pos.row]?.[pos.col];
+      return tile && tile !== 'obstacle' && tile !== 'explosive_core' && tile !== 'plasma_hazard';
+    });
+  }
   const preferred: GridPosition[] = [
     { row: 1, col: 5 },
     { row: 2, col: 6 },
@@ -82,8 +79,8 @@ function getValidEnemySpawnSlots(): GridPosition[] {
     { row: 1, col: 6 },
   ];
   return preferred.filter((pos) => {
-    const tile = stage1Map.tiles[pos.row]?.[pos.col];
-    return tile && tile !== 'obstacle';
+    const tile = map.tiles[pos.row]?.[pos.col];
+    return tile && tile !== 'obstacle' && tile !== 'explosive_core' && tile !== 'plasma_hazard';
   });
 }
 
@@ -91,7 +88,8 @@ function buildEnemySpawns(
   stage: 1 | 2 | 3,
   floor: number,
   nodeType: NodeType,
-  rng: () => number
+  rng: () => number,
+  map: StageMapData
 ): EnemySpawnConfig[] {
   const standards = unitDefinitions.filter(
     (u) => u.faction === 'enemy' && u.stage === stage && u.enemyRole === 'standard'
@@ -103,9 +101,13 @@ function buildEnemySpawns(
     (u) => u.instanceId === STAGE_BOSS_IDS[stage]
   );
 
-  const slots = getValidEnemySpawnSlots();
-  const pickSlot = (idx: number): GridPosition =>
-    slots[idx % slots.length] ?? { row: 1, col: 5 };
+  const slots = getValidEnemySpawnSlots(map);
+  const bossPos = map.bossSpawn ?? slots[0] ?? { row: 1, col: 5 };
+  const nonBossSlots = slots.filter(
+    (s) => !(s.row === bossPos.row && s.col === bossPos.col)
+  );
+  const pickSlot = (idx: number, pool: GridPosition[] = slots): GridPosition =>
+    pool[idx % pool.length] ?? { row: 1, col: 5 };
 
   const suffixes = ['A', 'B', 'C', 'D'];
   const spawns: EnemySpawnConfig[] = [];
@@ -114,10 +116,11 @@ function buildEnemySpawns(
     spawns.push({
       templateId: bossDef.instanceId,
       labelSuffix: '',
-      position: pickSlot(0),
+      position: { ...bossPos },
     });
 
-    const escortCount = stage === 1 ? 1 : stage === 2 ? 2 : 2;
+    const escortCount = stage === 1 ? 1 : 2;
+    const escortPool = nonBossSlots.length > 0 ? nonBossSlots : slots;
     for (let i = 0; i < escortCount; i++) {
       const tpl =
         i === 0 && stage === 3 && elites.length > 0
@@ -127,7 +130,7 @@ function buildEnemySpawns(
       spawns.push({
         templateId: tpl.instanceId,
         labelSuffix: i === 0 ? 'Guard' : suffixes[i],
-        position: pickSlot(i + 1),
+        position: pickSlot(i, escortPool),
       });
     }
     return spawns;
@@ -192,6 +195,11 @@ function createNodeForFloor(
 ): BranchingMapNode {
   const id = `s${stage}_f${floor}_l${lane}`;
   const nodeNumber = (stage - 1) * 6 + floor;
+  const stageMapPool = getStageMapsForStage(stage);
+  const chosenMap =
+    nodeType === 'boss_battle' && stage === 3
+      ? stageMapPool.find((m) => m.id === 'citadel_throne') ?? stageMapPool[0]
+      : stageMapPool[Math.floor(rng() * stageMapPool.length)] ?? stageMapPool[0];
 
   if (nodeType === 'boss_battle') {
     const bossDef = unitDefinitions.find(
@@ -205,13 +213,32 @@ function createNodeForFloor(
       lane,
       laneCount,
       nextNodeIds: [],
+      mapId: chosenMap.id,
       title: bossDef?.mecha.name ?? `Stage ${stage} Boss`,
       type: 'boss_battle',
       typeLabel: `Stage ${stage} Boss`,
       description:
         bossDef?.description ??
         `ปะทะบอสประจำ Stage ${stage}: ${bossDef?.mecha.name ?? 'Boss'}`,
-      enemySpawns: buildEnemySpawns(stage, floor, 'boss_battle', rng),
+      enemySpawns: buildEnemySpawns(stage, floor, 'boss_battle', rng, chosenMap),
+    };
+  }
+
+  if (nodeType === 'shop') {
+    return {
+      id,
+      nodeNumber,
+      stage,
+      floor,
+      lane,
+      laneCount,
+      nextNodeIds: [],
+      mapId: chosenMap.id,
+      title: 'Field Armory',
+      type: 'shop',
+      typeLabel: 'Field Shop',
+      description:
+        'ร้านค้ากลางสนามรบ — ซื้อการ์ด/อาวุธ, ตีบวก Forge Rank-Up, อัปเกรด Wingman หรือซ่อมบำรุง',
     };
   }
 
@@ -224,6 +251,7 @@ function createNodeForFloor(
       lane,
       laneCount,
       nextNodeIds: [],
+      mapId: chosenMap.id,
       title: 'Forward Supply Depot',
       type: 'repair_supply',
       typeLabel: 'Repair & Supply',
@@ -245,6 +273,7 @@ function createNodeForFloor(
       lane,
       laneCount,
       nextNodeIds: [],
+      mapId: chosenMap.id,
       title: 'Tactical Sector Event',
       type: 'repair_event',
       typeLabel: 'Repair & Event',
@@ -263,7 +292,7 @@ function createNodeForFloor(
     ? BATTLE_TITLES[stage].elite
     : BATTLE_TITLES[stage].standard;
   const title = pool[(lane + floor + Math.floor(rng() * pool.length)) % pool.length];
-  const spawns = buildEnemySpawns(stage, floor, nodeType, rng);
+  const spawns = buildEnemySpawns(stage, floor, nodeType, rng, chosenMap);
 
   return {
     id,
@@ -273,12 +302,13 @@ function createNodeForFloor(
     lane,
     laneCount,
     nextNodeIds: [],
+    mapId: chosenMap.id,
     title,
     type: nodeType,
     typeLabel: isElite ? 'Elite Battle' : 'Standard Battle',
     description: isElite
-      ? `กองกำลังชั้นยอดประจำ Stage ${stage} (${spawns.length} เครื่อง)`
-      : `การปะทะแนวรบ Stage ${stage} ชั้นที่ ${floor} (${spawns.length} เครื่อง)`,
+      ? `กองกำลังชั้นยอดประจำ Stage ${stage} · ${chosenMap.name} (${spawns.length} เครื่อง)`
+      : `สมรภูมิ: ${chosenMap.name} (${spawns.length} เครื่อง)`,
     enemySpawns: spawns,
   };
 }
@@ -298,12 +328,13 @@ function assignFloorTypes(
     return ['boss_battle'];
   }
 
-  // Floors 2–4: mix standard_battle, elite_battle, repair_event, repair_supply
+  // Floors 2–4: mix standard_battle, elite_battle, repair_event, repair_supply, and shop
   const middlePool: NodeType[] = [
     'standard_battle',
     'repair_event',
     'elite_battle',
     'repair_supply',
+    'shop',
   ];
   const types: NodeType[] = [];
 
@@ -311,14 +342,19 @@ function assignFloorTypes(
     const roll = rng();
     if (floor === 4 && i === 0) {
       types.push('elite_battle');
-    } else if (floor === 2 && roll < 0.45) {
+    } else if (floor === 3 && i === count - 1) {
+      // Guarantee at least one Field Armory Shop in every Stage on Floor 3
+      types.push('shop');
+    } else if (floor === 2 && roll < 0.4) {
       types.push('standard_battle');
-    } else if (roll < 0.38) {
+    } else if (roll < 0.32) {
       types.push('standard_battle');
-    } else if (roll < 0.65) {
+    } else if (roll < 0.56) {
       types.push('repair_event');
-    } else if (roll < 0.86) {
+    } else if (roll < 0.76) {
       types.push('elite_battle');
+    } else if (roll < 0.9) {
+      types.push('shop');
     } else {
       types.push(middlePool[Math.floor(rng() * middlePool.length)]);
     }

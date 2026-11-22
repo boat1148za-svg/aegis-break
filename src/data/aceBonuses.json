@@ -1,0 +1,100 @@
+[
+  {
+    "pilotId": "pilot_ren",
+    "pilotName": "Ren Takahashi",
+    "isWingman": false,
+    "tier1": {
+      "killsRequired": 5,
+      "label": "ACE (5+ Kills): Will เริ่มต้น +10",
+      "effects": {
+        "startWillBonus": 10
+      }
+    },
+    "tier2": {
+      "killsRequired": 10,
+      "label": "SUPER ACE (10+ Kills): ท่าไม้ตาย Will 120+ แรงขึ้น +20%",
+      "effects": {
+        "finisherDamagePercent": 20
+      }
+    }
+  },
+  {
+    "pilotId": "pilot_elena",
+    "pilotName": "Elena Vance",
+    "isWingman": false,
+    "tier1": {
+      "killsRequired": 5,
+      "label": "ACE (5+ Kills): Evade +15%",
+      "effects": {
+        "evadeBonus": 15
+      }
+    },
+    "tier2": {
+      "killsRequired": 10,
+      "label": "SUPER ACE (10+ Kills): Crit Rate +20%",
+      "effects": {
+        "critRateBonus": 20
+      }
+    }
+  },
+  {
+    "pilotId": "pilot_seraph",
+    "pilotName": "Commander Iris Sterling",
+    "isWingman": false,
+    "tier1": {
+      "killsRequired": 5,
+      "label": "ACE (5+ Kills): Accuracy +15%",
+      "effects": {
+        "accuracyBonus": 15
+      }
+    },
+    "tier2": {
+      "killsRequired": 10,
+      "label": "SUPER ACE (10+ Kills): เจาะเกราะ +20% & Will เริ่มต้น +10",
+      "effects": {
+        "armorPierceBonus": 20,
+        "startWillBonus": 10
+      }
+    }
+  },
+  {
+    "pilotId": "pilot_mina",
+    "pilotName": "Dr. Mina Aoki",
+    "isWingman": true,
+    "tier1": {
+      "killsRequired": 3,
+      "label": "WINGMAN ACE (3+ Kills): Accuracy +10% & EN เริ่มต้นไม่เสียเพิ่ม",
+      "effects": {
+        "accuracyBonus": 10,
+        "startWillBonus": 5
+      }
+    },
+    "tier2": {
+      "killsRequired": 6,
+      "label": "SENIOR MEDIC ACE (6+ Kills): Crit Rate +15%",
+      "effects": {
+        "critRateBonus": 15
+      }
+    }
+  },
+  {
+    "pilotId": "pilot_kai",
+    "pilotName": "Kai Sato",
+    "isWingman": true,
+    "tier1": {
+      "killsRequired": 3,
+      "label": "WINGMAN ACE (3+ Kills): Evade +10% & Will +5",
+      "effects": {
+        "evadeBonus": 10,
+        "startWillBonus": 5
+      }
+    },
+    "tier2": {
+      "killsRequired": 6,
+      "label": "SUPPORT ACE (6+ Kills): Accuracy +15%",
+      "effects": {
+        "accuracyBonus": 15
+      }
+    }
+  }
+]

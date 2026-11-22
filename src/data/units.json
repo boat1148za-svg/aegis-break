@@ -169,6 +169,97 @@
     }
   },
   {
+    "instanceId": "player_seraph_zero",
+    "faction": "player",
+    "archetype": "Siege Artillery",
+    "description": "หุ่นปืนใหญ่หนักระยะไกล Passive Siege Lock: หากยังไม่ได้เคลื่อนที่ในเทิร์นนี้ ได้ Accuracy +20% และเจาะเกราะ Armor Pierce +25%!",
+    "icon": "🔭",
+    "shortName": "SRP-0",
+    "startPosition": { "row": 6, "col": 1 },
+    "mecha": {
+      "id": "mech_seraph_zero",
+      "name": "Seraph-Zero",
+      "faction": "player",
+      "maxHp": 4200,
+      "maxEn": 150,
+      "armor": 850,
+      "mobility": 45,
+      "move": 3,
+      "hasSiegeLock": true,
+      "weaponIds": [
+        "seraph_point_defense",
+        "gauss_siege_cannon",
+        "cluster_mortar",
+        "orbital_judgment_map"
+      ],
+      "weapons": [
+        {
+          "id": "seraph_point_defense",
+          "name": "Photon Point-Defense",
+          "type": "ranged",
+          "power": 1250,
+          "accuracy": 35,
+          "minRange": 1,
+          "maxRange": 2,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "gauss_siege_cannon",
+          "name": "Gauss Siege Cannon",
+          "type": "ranged",
+          "power": 2150,
+          "accuracy": 30,
+          "minRange": 2,
+          "maxRange": 6,
+          "enCost": 18,
+          "ammo": null,
+          "willRequired": 100,
+          "armorPiercePercent": 25
+        },
+        {
+          "id": "cluster_mortar",
+          "name": "Cluster Mortar",
+          "type": "ranged",
+          "power": 2400,
+          "accuracy": 25,
+          "minRange": 2,
+          "maxRange": 5,
+          "enCost": 12,
+          "ammo": 8,
+          "willRequired": 100
+        },
+        {
+          "id": "orbital_judgment_map",
+          "name": "Orbital Judgment [MAP]",
+          "type": "ranged",
+          "power": 2850,
+          "accuracy": 35,
+          "minRange": 1,
+          "maxRange": 5,
+          "enCost": 45,
+          "ammo": null,
+          "willRequired": 120,
+          "is_map_weapon": true,
+          "mapLength": 5,
+          "armorPiercePercent": 20
+        }
+      ]
+    },
+    "pilot": {
+      "id": "pilot_seraph",
+      "name": "Commander Iris Sterling",
+      "faction": "player",
+      "melee": 90,
+      "ranged": 155,
+      "accuracy": 175,
+      "evade": 55,
+      "maxSp": 95,
+      "spiritCommandIds": ["valor", "focus", "iron_wall", "trust"]
+    }
+  },
+  {
     "instanceId": "enemy_sentinel",
     "faction": "enemy",
     "stage": 1,

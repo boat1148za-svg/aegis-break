@@ -1,6 +1,12 @@
 export type Faction = 'player' | 'enemy';
 
-export type TerrainId = 'normal' | 'repair_zone' | 'obstacle';
+export type TerrainId =
+  | 'normal'
+  | 'repair_zone'
+  | 'obstacle'
+  | 'explosive_core'
+  | 'high_ground'
+  | 'plasma_hazard';
 
 export type WeaponType = 'melee' | 'ranged';
 
@@ -26,8 +32,18 @@ export interface TerrainConfig {
   id: TerrainId;
   name: string;
   label: string;
+  description?: string;
   walkable: boolean;
   blocksRanged: boolean;
+  destructible?: boolean;
+  explosionDamage?: number;
+  explosionRadius?: number;
+  accuracyBonus?: number;
+  damageBonusPercent?: number;
+  rangeBonus?: number;
+  hazardDamagePercent?: number;
+  hazardMaxDamage?: number;
+  hazardMinHpRemaining?: number;
   hpRegenPercent: number;
   enRegenPercent: number;
   evadeBonus: number;
@@ -35,10 +51,14 @@ export interface TerrainConfig {
 
 export interface StageMapData {
   id: string;
+  stage?: 1 | 2 | 3;
   name: string;
   rows: number;
   cols: number;
   tiles: TerrainId[][];
+  playerSpawns?: GridPosition[];
+  enemySpawns?: GridPosition[];
+  bossSpawn?: GridPosition;
 }
 
 export interface WeaponData {
@@ -119,6 +139,7 @@ export interface MechaData {
   hasDangerZoneSkill?: boolean;
   dangerZoneWeapon?: WeaponData;
   hitAndAwaySteps?: number;
+  hasSiegeLock?: boolean;
 }
 
 export interface PilotData {
@@ -154,6 +175,7 @@ export type ScreenView =
   | 'NODE_MAP'
   | 'BATTLE'
   | 'EVENT'
+  | 'SHOP'
   | 'RUN_END';
 
 export interface MetaUpgradeEffect {
@@ -161,6 +183,8 @@ export interface MetaUpgradeEffect {
   spBonus?: number;
   armorBonus?: number;
   unlockSupportMech?: boolean;
+  wingmanHealBonus?: number;
+  wingmanArmorBonus?: number;
 }
 
 export interface MetaUpgradeData {
@@ -201,6 +225,8 @@ export interface MetaBonuses {
   spBonus: number;
   armorBonus: number;
   unlockSupportMech: boolean;
+  wingmanHealBonus: number;
+  wingmanArmorBonus: number;
 }
 
 export interface RunSummaryData {
@@ -216,6 +242,9 @@ export interface RunSummaryData {
   shardMultiplier: number;
   totalShardsEarned: number;
   newTotalShards: number;
+  endlessLoop?: number;
+  totalKills?: number;
+  creditsEarned?: number;
 }
 
 export type NodeType =
@@ -224,6 +253,7 @@ export type NodeType =
   | 'elite_battle'
   | 'repair_supply'
   | 'hard_battle'
+  | 'shop'
   | 'boss_battle';
 
 export interface EnemySpawnConfig {
@@ -254,6 +284,7 @@ export interface RunNodeData {
   lane?: number;
   laneCount?: number;
   nextNodeIds?: string[];
+  mapId?: string;
 }
 
 export interface BranchingMapNode extends RunNodeData {
@@ -322,6 +353,14 @@ export interface RunPlayerState {
   installedUpgradeIds: string[];
   equippedWeapons: WeaponData[];
   squadAllyIds: string[];
+  credits: number;
+  killCount: number;
+  wingmanKills: Record<string, number>;
+  wingmanHealBonus: number;
+  wingmanArmorBonus: number;
+  endlessLoop: number;
+  maxSingleHitDamage: number;
+  dailyModifierIds: string[];
 }
 
 export interface ActiveSpirits {
@@ -354,6 +393,7 @@ export interface BattleUnit {
   momentumMoveLimit?: number | null;
   overLimitActive?: boolean;
   overLimitUsedThisTurn?: boolean;
+  killCount?: number;
   activeSpirits: ActiveSpirits;
   installedUpgradeIds: string[];
 }
@@ -408,6 +448,13 @@ export interface BattleForecast {
   supportAttack: SupportAttackPreview | null;
   defenderCounterWeapon: WeaponData | null;
   defenderPreview: CombatPreview | null;
+  attackerHighGround?: boolean;
+  defenderHighGround?: boolean;
+  attackerSiegeLock?: boolean;
+  knockbackWarning?: {
+    kind: 'explosive_core' | 'plasma_hazard' | 'collision';
+    label: string;
+  } | null;
 }
 
 export interface CounterPromptData {
@@ -450,6 +497,9 @@ export interface KnockbackResult {
   collisionDamage: number;
   targetDestroyedByCollision: boolean;
   collidedUnitDestroyed: boolean;
+  triggeredExplosivePos?: GridPosition | null;
+  landedOnHazard?: boolean;
+  hazardDamage?: number;
 }
 
 export interface FloatingTextEvent {
@@ -457,6 +507,73 @@ export interface FloatingTextEvent {
   position: GridPosition;
   text: string;
   variant: 'damage' | 'miss' | 'heal' | 'destroyed' | 'collision';
+}
+
+export interface AceBonusEffect {
+  startWillBonus?: number;
+  finisherDamagePercent?: number;
+  evadeBonus?: number;
+  critRateBonus?: number;
+  accuracyBonus?: number;
+  armorPierceBonus?: number;
+}
+
+export interface AceBonusDefinition {
+  pilotId: string;
+  pilotName: string;
+  isWingman?: boolean;
+  tier1: {
+    killsRequired: number;
+    label: string;
+    effects: AceBonusEffect;
+  };
+  tier2?: {
+    killsRequired: number;
+    label: string;
+    effects: AceBonusEffect;
+  };
+}
+
+export interface DailyModifierData {
+  id: string;
+  name: string;
+  nameTh: string;
+  icon: string;
+  conflictGroup: string;
+  description: string;
+  effects: {
+    moveBonus?: number;
+    allDamageMultiplier?: number;
+    extraEnRegen?: number;
+    disableBaseRepair?: boolean;
+    creditsMultiplier?: number;
+    enemyHpBonusPercent?: number;
+    enemyArmorBonus?: number;
+    startWillBonus?: number;
+  };
+}
+
+export interface AchievementData {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  rewardShards: number;
+}
+
+export interface RunHistoryEntry {
+  id: string;
+  timestamp: number;
+  outcome: 'victory' | 'defeat';
+  unitDefId: string;
+  mechaName: string;
+  threatLevel: number;
+  endlessLoop: number;
+  floorsCleared: number;
+  kills: number;
+  maxDamage: number;
+  shardsEarned: number;
+  isDailyChallenge: boolean;
 }
 
 export interface TurnState {

@@ -9,10 +9,58 @@ export interface SavedRunState {
   clearedNodeIds: string[];
   totalFloorsCleared: number;
   runSeed: number;
+  isDailyChallenge?: boolean;
   savedAt: number;
 }
 
 const ACTIVE_RUN_STORAGE_KEY = 'aegis_break_active_run_v2';
+
+export function normalizeRunPlayerState(
+  rawPlayer: Partial<RunPlayerState> & Pick<RunPlayerState, 'unitDefId' | 'hp' | 'en' | 'sp'>
+): RunPlayerState {
+  return {
+    unitDefId: rawPlayer.unitDefId,
+    hp: rawPlayer.hp,
+    en: rawPlayer.en,
+    sp: rawPlayer.sp,
+    maxWillBonus:
+      typeof rawPlayer.maxWillBonus === 'number' ? rawPlayer.maxWillBonus : 0,
+    installedUpgradeIds: Array.isArray(rawPlayer.installedUpgradeIds)
+      ? rawPlayer.installedUpgradeIds
+      : [],
+    equippedWeapons: Array.isArray(rawPlayer.equippedWeapons)
+      ? rawPlayer.equippedWeapons
+      : [],
+    squadAllyIds: Array.isArray(rawPlayer.squadAllyIds)
+      ? rawPlayer.squadAllyIds
+      : [],
+    credits: typeof rawPlayer.credits === 'number' ? rawPlayer.credits : 0,
+    killCount: typeof rawPlayer.killCount === 'number' ? rawPlayer.killCount : 0,
+    wingmanKills:
+      rawPlayer.wingmanKills && typeof rawPlayer.wingmanKills === 'object'
+        ? rawPlayer.wingmanKills
+        : {},
+    wingmanHealBonus:
+      typeof rawPlayer.wingmanHealBonus === 'number'
+        ? rawPlayer.wingmanHealBonus
+        : 0,
+    wingmanArmorBonus:
+      typeof rawPlayer.wingmanArmorBonus === 'number'
+        ? rawPlayer.wingmanArmorBonus
+        : 0,
+    endlessLoop:
+      typeof rawPlayer.endlessLoop === 'number' && rawPlayer.endlessLoop >= 1
+        ? rawPlayer.endlessLoop
+        : 1,
+    maxSingleHitDamage:
+      typeof rawPlayer.maxSingleHitDamage === 'number'
+        ? rawPlayer.maxSingleHitDamage
+        : 0,
+    dailyModifierIds: Array.isArray(rawPlayer.dailyModifierIds)
+      ? rawPlayer.dailyModifierIds
+      : [],
+  };
+}
 
 export function loadSavedRun(): SavedRunState | null {
   try {
@@ -30,7 +78,7 @@ export function loadSavedRun(): SavedRunState | null {
       return null;
     }
     return {
-      runPlayer: parsed.runPlayer,
+      runPlayer: normalizeRunPlayerState(parsed.runPlayer),
       runThreatLevel:
         typeof parsed.runThreatLevel === 'number' ? parsed.runThreatLevel : 0,
       currentStage: parsed.currentStage,
@@ -45,6 +93,7 @@ export function loadSavedRun(): SavedRunState | null {
           ? parsed.totalFloorsCleared
           : 0,
       runSeed: typeof parsed.runSeed === 'number' ? parsed.runSeed : 100001,
+      isDailyChallenge: Boolean(parsed.isDailyChallenge),
       savedAt: typeof parsed.savedAt === 'number' ? parsed.savedAt : Date.now(),
     };
   } catch {

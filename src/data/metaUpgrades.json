@@ -57,6 +57,32 @@
       "effectPerLevel": {
         "unlockSupportMech": true
       }
+    },
+    {
+      "id": "meta_medic_overhaul",
+      "name": "Wingman Nano-Overhaul",
+      "nameTh": "ยกระดับระบบซ่อมหุ่นลูกทีม",
+      "icon": "💉",
+      "description": "เพิ่มประสิทธิภาพลำแสงซ่อมของหุ่นลูกทีม Support/Medic +15% ต่อระดับ",
+      "maxLevel": 2,
+      "baseCost": 80,
+      "costStep": 50,
+      "effectPerLevel": {
+        "wingmanHealBonus": 15
+      }
+    },
+    {
+      "id": "meta_wingman_armor",
+      "name": "Wingman Composite Plating",
+      "nameTh": "เสริมเกราะหุ่นลูกทีมถาวร",
+      "icon": "🔰",
+      "description": "เพิ่มเกราะ Armor ให้หุ่นลูกทีมทุกเครื่องถาวร +120 ต่อระดับ",
+      "maxLevel": 3,
+      "baseCost": 70,
+      "costStep": 40,
+      "effectPerLevel": {
+        "wingmanArmorBonus": 120
+      }
     }
   ]
 }

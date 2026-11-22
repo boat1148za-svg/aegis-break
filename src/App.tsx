@@ -8,6 +8,7 @@ import { HangarScreen } from './components/HangarScreen';
 import { NodeMapScreen } from './components/NodeMapScreen';
 import { PostProcessOverlay } from './components/PostProcessOverlay';
 import { RunEndScreen } from './components/RunEndScreen';
+import { ShopNodeScreen } from './components/ShopNodeScreen';
 import { TitleScreen } from './components/TitleScreen';
 import { UpgradeDraftModal } from './components/UpgradeDraftModal';
 import { WeaponSwapModal } from './components/WeaponSwapModal';
@@ -19,6 +20,12 @@ import {
   getUnitDefById,
 } from './logic/dataLoader';
 import { createRandomSeed, generateStageMap } from './logic/mapGenerator';
+import {
+  claimAchievementReward,
+  loadClaimedAchievements,
+  loadRunHistory,
+  recordRunHistory,
+} from './logic/historyLogic';
 import {
   calculateRunShardsReward,
   loadMetaProgress,
@@ -42,6 +49,7 @@ import type {
   BranchingStageMap,
   DraftChoice,
   MetaProgressState,
+  RunHistoryEntry,
   RunNodeData,
   RunPlayerState,
   RunSummaryData,
@@ -71,12 +79,22 @@ interface PendingStageAdvance {
   nextStage: 2 | 3;
 }
 
+interface PendingEndlessChoice {
+  updatedPlayer: RunPlayerState;
+  nextFloorsCleared: number;
+}
+
 const TOTAL_CAMPAIGN_FLOORS =
   combatConfig.campaign.totalStages * combatConfig.campaign.floorsPerStage;
 
 export function App() {
   const [meta, setMeta] = useState<MetaProgressState>(loadMetaProgress);
   const [savedRun, setSavedRun] = useState<SavedRunState | null>(loadSavedRun);
+  const [runHistory, setRunHistory] =
+    useState<RunHistoryEntry[]>(loadRunHistory);
+  const [claimedAchievementIds, setClaimedAchievementIds] = useState<string[]>(
+    loadClaimedAchievements
+  );
   const [audioPrefs, setAudioPrefs] = useState(() => audioEngine.getPrefs());
   const [screen, setScreen] = useState<ScreenView>('TITLE');
   const [runPlayer, setRunPlayer] = useState<RunPlayerState | null>(null);
@@ -87,12 +105,15 @@ export function App() {
   const [clearedNodeIds, setClearedNodeIds] = useState<string[]>([]);
   const [totalFloorsCleared, setTotalFloorsCleared] = useState(0);
   const [runSeed, setRunSeed] = useState<number>(createRandomSeed);
+  const [isDailyChallenge, setIsDailyChallenge] = useState<boolean>(false);
   const [activeNode, setActiveNode] = useState<RunNodeData | null>(null);
   const [activeAmbush, setActiveAmbush] = useState<ActiveAmbush | null>(null);
   const [pendingDraft, setPendingDraft] = useState<PendingDraft | null>(null);
   const [pendingSwap, setPendingSwap] = useState<PendingWeaponSwap | null>(null);
   const [pendingStageAdvance, setPendingStageAdvance] =
     useState<PendingStageAdvance | null>(null);
+  const [pendingEndlessChoice, setPendingEndlessChoice] =
+    useState<PendingEndlessChoice | null>(null);
   const [runSummary, setRunSummary] = useState<RunSummaryData | null>(null);
 
   const runVictory = totalFloorsCleared >= TOTAL_CAMPAIGN_FLOORS;
@@ -140,6 +161,15 @@ export function App() {
     setMeta((prev) => purchaseMetaUpgrade(prev, upgradeId));
   };
 
+  const handleClaimAchievement = (achievementId: string) => {
+    audioEngine.playSfx('spirit');
+    const result = claimAchievementReward(achievementId, runHistory, meta);
+    if (result.claimed) {
+      setClaimedAchievementIds(result.claimedIds);
+      setMeta(result.updatedMeta);
+    }
+  };
+
   const persistProgress = (
     player: RunPlayerState,
     threatLevel: number,
@@ -148,7 +178,8 @@ export function App() {
     nodeId: string | null,
     cleared: string[],
     floorsCleared: number,
-    seed: number
+    seed: number,
+    dailyChallenge: boolean = isDailyChallenge
   ) => {
     const payload: Omit<SavedRunState, 'savedAt'> = {
       runPlayer: player,
@@ -159,6 +190,7 @@ export function App() {
       clearedNodeIds: cleared,
       totalFloorsCleared: floorsCleared,
       runSeed: seed,
+      isDailyChallenge: dailyChallenge,
     };
     saveActiveRun(payload);
     setSavedRun({ ...payload, savedAt: Date.now() });
@@ -168,13 +200,20 @@ export function App() {
     unitDefId: string,
     startingAllyIds: string[],
     threatLevel: number,
-    seedInput?: number
+    seedInput?: number,
+    dailyModifierIds: string[] = [],
+    dailyFlag: boolean = false
   ) => {
     audioEngine.unlock();
     audioEngine.playSfx('click');
     const seed = seedInput ?? createRandomSeed();
     const initialMap = generateStageMap(1, seed);
-    const initialPlayer = createRunPlayerState(unitDefId, meta, startingAllyIds);
+    const initialPlayer = createRunPlayerState(
+      unitDefId,
+      meta,
+      startingAllyIds,
+      dailyModifierIds
+    );
 
     setRunPlayer(initialPlayer);
     setRunThreatLevel(threatLevel);
@@ -184,11 +223,13 @@ export function App() {
     setClearedNodeIds([]);
     setTotalFloorsCleared(0);
     setRunSeed(seed);
+    setIsDailyChallenge(dailyFlag);
     setActiveNode(null);
     setActiveAmbush(null);
     setPendingDraft(null);
     setPendingSwap(null);
     setPendingStageAdvance(null);
+    setPendingEndlessChoice(null);
     setRunSummary(null);
     persistProgress(
       initialPlayer,
@@ -198,7 +239,8 @@ export function App() {
       null,
       [],
       0,
-      seed
+      seed,
+      dailyFlag
     );
     setScreen('NODE_MAP');
   };
@@ -215,11 +257,13 @@ export function App() {
     setClearedNodeIds(savedRun.clearedNodeIds);
     setTotalFloorsCleared(savedRun.totalFloorsCleared);
     setRunSeed(savedRun.runSeed);
+    setIsDailyChallenge(Boolean(savedRun.isDailyChallenge));
     setActiveNode(null);
     setActiveAmbush(null);
     setPendingDraft(null);
     setPendingSwap(null);
     setPendingStageAdvance(null);
+    setPendingEndlessChoice(null);
     setRunSummary(null);
     setScreen('NODE_MAP');
   };
@@ -237,6 +281,7 @@ export function App() {
     setPendingDraft(null);
     setPendingSwap(null);
     setPendingStageAdvance(null);
+    setPendingEndlessChoice(null);
     setRunSummary(null);
     setSavedRun(loadSavedRun());
     setScreen('HANGAR');
@@ -249,6 +294,8 @@ export function App() {
     setActiveAmbush(null);
     if (node.type === 'repair_event' || node.type === 'repair_supply') {
       setScreen('EVENT');
+    } else if (node.type === 'shop') {
+      setScreen('SHOP');
     } else {
       setScreen('BATTLE');
     }
@@ -338,6 +385,21 @@ export function App() {
     saveMetaProgress(updatedMeta);
     setMeta(updatedMeta);
 
+    const mainDef = getUnitDefById(playerSnapshot.unitDefId);
+    const updatedHistory = recordRunHistory({
+      outcome,
+      unitDefId: playerSnapshot.unitDefId,
+      mechaName: mainDef?.mecha.name ?? playerSnapshot.unitDefId,
+      threatLevel: runThreatLevel,
+      endlessLoop: playerSnapshot.endlessLoop ?? 1,
+      floorsCleared: floorsClearedCount,
+      kills: playerSnapshot.killCount ?? 0,
+      maxDamage: playerSnapshot.maxSingleHitDamage ?? 0,
+      shardsEarned: reward.totalShardsEarned,
+      isDailyChallenge,
+    });
+    setRunHistory(updatedHistory);
+
     setRunSummary({
       outcome,
       unitDefId: playerSnapshot.unitDefId,
@@ -351,13 +413,61 @@ export function App() {
       shardMultiplier: reward.shardMultiplier,
       totalShardsEarned: reward.totalShardsEarned,
       newTotalShards: updatedMeta.astralShards,
+      endlessLoop: playerSnapshot.endlessLoop,
+      totalKills: playerSnapshot.killCount,
+      creditsEarned: playerSnapshot.credits,
     });
     setActiveNode(null);
     setActiveAmbush(null);
     setPendingDraft(null);
     setPendingSwap(null);
     setPendingStageAdvance(null);
+    setPendingEndlessChoice(null);
     setScreen('RUN_END');
+  };
+
+  const handleContinueEndlessLoop = () => {
+    if (!pendingEndlessChoice) return;
+    audioEngine.unlock();
+    audioEngine.playSfx('spirit');
+    const { updatedPlayer, nextFloorsCleared } = pendingEndlessChoice;
+    const nextLoop = (updatedPlayer.endlessLoop ?? 1) + 1;
+    const effectiveMecha = getEffectivePlayerMecha(updatedPlayer, meta);
+    const halfHp = Math.round(effectiveMecha.maxHp * 0.5);
+    const halfEn = Math.round(effectiveMecha.maxEn * 0.5);
+    const loopPlayer: RunPlayerState = {
+      ...updatedPlayer,
+      endlessLoop: nextLoop,
+      hp: Math.min(effectiveMecha.maxHp, updatedPlayer.hp + halfHp),
+      en: Math.min(effectiveMecha.maxEn, updatedPlayer.en + halfEn),
+    };
+    const nextMap = generateStageMap(1, runSeed + nextLoop * 13371);
+
+    setRunPlayer(loopPlayer);
+    setTotalFloorsCleared(nextFloorsCleared);
+    setCurrentStage(1);
+    setStageMap(nextMap);
+    setCurrentNodeId(null);
+    setClearedNodeIds([]);
+    setPendingEndlessChoice(null);
+    setPendingStageAdvance(null);
+    setPendingDraft(null);
+    setPendingSwap(null);
+    setActiveNode(null);
+    setActiveAmbush(null);
+
+    persistProgress(
+      loopPlayer,
+      runThreatLevel,
+      1,
+      nextMap,
+      null,
+      [],
+      nextFloorsCleared,
+      runSeed,
+      isDailyChallenge
+    );
+    setScreen('NODE_MAP');
   };
 
   const finalizeNodeAndReturnToMap = (
@@ -401,9 +511,9 @@ export function App() {
       return;
     }
 
-    // Final Stage 3 Boss Victory -> Run Complete!
+    // Final Stage 3 Boss Victory -> Offer Endless Overdrive Mode or Victory Finish!
     if (node.type === 'boss_battle' && currentStage >= 3) {
-      triggerRunEnd('victory', nextFloorsCleared, updatedPlayer);
+      setPendingEndlessChoice({ updatedPlayer, nextFloorsCleared });
       return;
     }
 
@@ -631,6 +741,9 @@ export function App() {
     content = (
       <HangarScreen
         meta={meta}
+        history={runHistory}
+        claimedAchievementIds={claimedAchievementIds}
+        onClaimAchievement={handleClaimAchievement}
         onStartRun={handleStartRun}
         onPurchaseMetaUpgrade={handlePurchaseMetaUpgrade}
         onBackToTitle={() => {
@@ -651,6 +764,16 @@ export function App() {
           finalizeNodeAndReturnToMap(activeNode, updated, shardsEarned)
         }
         onTriggerAmbushBattle={handleTriggerAmbushBattle}
+      />
+    );
+  } else if (screen === 'SHOP' && activeNode) {
+    content = (
+      <ShopNodeScreen
+        key={activeNode.id}
+        node={activeNode}
+        runPlayer={runPlayer}
+        meta={meta}
+        onLeaveShop={(updated) => finalizeNodeAndReturnToMap(activeNode, updated)}
       />
     );
   } else if (screen === 'BATTLE' && (activeAmbush || activeNode)) {
@@ -711,6 +834,58 @@ export function App() {
   return (
     <>
       {content}
+      {pendingEndlessChoice && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-md"
+          data-testid="endless-choice-modal"
+        >
+          <div className="hud-panel max-w-lg border-fuchsia-500/70 bg-[#080c14]/95 p-7 text-center shadow-[0_0_50px_rgba(217,70,239,0.28)]">
+            <div className="text-5xl">♾️</div>
+            <p className="font-orbitron mt-3 text-[11px] font-bold tracking-[0.26em] text-fuchsia-300 uppercase">
+              STAGE 3 OVERLORD VANQUISHED · ENDLESS PROTOCOL
+            </p>
+            <h2 className="font-orbitron mt-1 text-2xl font-black text-slate-50">
+              ENDLESS OVERDRIVE UNLOCKED
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-slate-300">
+              คุณปราบบอส Stage 3 สำเร็จแล้ว! ต้องการเข้าสู่{' '}
+              <strong className="text-fuchsia-300">
+                Endless Loop {(pendingEndlessChoice.updatedPlayer.endlessLoop ?? 1) + 1}
+              </strong>{' '}
+              (ฟื้นฟู HP/EN 50%, ศัตรูแกร่งขึ้น HP +{combatConfig.endless.hpScalePerLoopPercent}% /
+              ATK +{combatConfig.endless.attackScalePerLoopPercent}% / Armor +
+              {combatConfig.endless.armorScalePerLoopPercent}%, เพดานตีบวก Lv.
+              {combatConfig.endless.maxWeaponLevelEndless}) หรือจบภารกิจรับ Astral Shards เลย?
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                type="button"
+                data-testid="continue-endless-btn"
+                onClick={handleContinueEndlessLoop}
+                className="font-orbitron cursor-pointer rounded-xl border border-fuchsia-400/80 bg-gradient-to-r from-fuchsia-600 to-purple-600 px-5 py-3 text-xs font-black tracking-wider text-white shadow-lg transition hover:brightness-115"
+              >
+                ⚡ CONTINUE TO ENDLESS LOOP{' '}
+                {(pendingEndlessChoice.updatedPlayer.endlessLoop ?? 1) + 1}
+              </button>
+              <button
+                type="button"
+                data-testid="finish-run-btn"
+                onClick={() =>
+                  triggerRunEnd(
+                    'victory',
+                    pendingEndlessChoice.nextFloorsCleared,
+                    pendingEndlessChoice.updatedPlayer
+                  )
+                }
+                className="font-orbitron cursor-pointer rounded-xl border border-emerald-400/70 bg-emerald-600/25 px-5 py-3 text-xs font-bold tracking-wider text-emerald-200 transition hover:bg-emerald-600/40"
+              >
+                🏁 FINISH &amp; CLAIM ASTRAL SHARDS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <PostProcessOverlay />
     </>
   );
