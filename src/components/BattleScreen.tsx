@@ -29,6 +29,7 @@ import {
 import { getThreatLevelConfig } from '../logic/metaLogic';
 import {
   chooseEnemyMoveTarget,
+  chooseHitAndAwayRetreatTile,
   findBestWeaponInRange,
   getCardinalDirectionTo,
   getDangerZoneRowTiles,
@@ -344,7 +345,8 @@ export function BattleScreen({
     const updated = currentUnits.map((u) => {
       if (
         u.faction === 'enemy' &&
-        u.mecha.id === 'overlord_dreadnought' &&
+        (u.mecha.id === 'boss_overlord' ||
+          u.mecha.id === 'overlord_dreadnought') &&
         u.hp > 0 &&
         !u.bossPhase2 &&
         (u.hp / u.mecha.maxHp) * 100 <=
@@ -921,6 +923,53 @@ export function BattleScreen({
       );
     }
 
+    const proceedAfterHitAndAway = (unitsBeforeRetreat: BattleUnit[]) => {
+      const updatedEnemy = unitsBeforeRetreat.find(
+        (u) => u.instanceId === postEnemyStrikeAttacker.instanceId
+      );
+      let nextWorking = unitsBeforeRetreat;
+      if (
+        updatedEnemy &&
+        updatedEnemy.hp > 0 &&
+        updatedEnemy.mecha.hitAndAwaySteps &&
+        updatedEnemy.mecha.hitAndAwaySteps > 0
+      ) {
+        const retreatPos = chooseHitAndAwayRetreatTile(
+          updatedEnemy,
+          updatedEnemy.mecha.hitAndAwaySteps,
+          stage1Map,
+          unitsBeforeRetreat
+        );
+        if (
+          retreatPos.row !== updatedEnemy.position.row ||
+          retreatPos.col !== updatedEnemy.position.col
+        ) {
+          nextWorking = unitsBeforeRetreat.map((u) =>
+            u.instanceId === updatedEnemy.instanceId
+              ? {
+                  ...u,
+                  position: { ...retreatPos },
+                  facing: getFacingBetween(
+                    updatedEnemy.position,
+                    retreatPos,
+                    u.facing ?? 'left'
+                  ),
+                }
+              : u
+          );
+          setUnits(nextWorking);
+          spawnFloatingText(retreatPos, 'HIT & AWAY!', 'collision');
+          appendLog(
+            `⚡ [Hit & Away] ${updatedEnemy.mecha.name} เคลื่อนที่ถอยฉากหลังโจมตี → ${formatCoord(retreatPos)}`
+          );
+        }
+      }
+
+      scheduleTimer(() => {
+        processNextEnemy(remainingEnemyIds, nextWorking, nextTurnNumber);
+      }, 650);
+    };
+
     if (
       action === 'counter' &&
       postEnemyStrikePlayer.hp > 0 &&
@@ -1002,14 +1051,10 @@ export function BattleScreen({
           );
         }
 
-        scheduleTimer(() => {
-          processNextEnemy(remainingEnemyIds, latestUnits, nextTurnNumber);
-        }, 650);
+        proceedAfterHitAndAway(latestUnits);
       }, 650);
     } else {
-      scheduleTimer(() => {
-        processNextEnemy(remainingEnemyIds, latestUnits, nextTurnNumber);
-      }, 650);
+      proceedAfterHitAndAway(latestUnits);
     }
   };
 
@@ -1855,7 +1900,8 @@ export function BattleScreen({
         if (
           u.faction === 'enemy' &&
           u.hp > 0 &&
-          u.mecha.id === 'overlord_dreadnought'
+          (u.mecha.id === 'boss_overlord' ||
+            u.mecha.id === 'overlord_dreadnought')
         ) {
           const healAmt = Math.round(
             (u.mecha.maxHp * threatCfg.bossRegenPercent) / 100
@@ -1973,7 +2019,7 @@ export function BattleScreen({
       )}
 
       <StatusHeader
-        stageName={`NODE ${node.nodeNumber} · ${node.title} (${node.typeLabel})`}
+        stageName={`STAGE ${node.stage ?? 1}/3 · F${node.floor ?? node.nodeNumber} · ${node.title}`}
         turnState={turnState}
         isBusy={isBusy || battleOutcome !== null}
         speedMultiplier={speedMultiplier}
@@ -2017,7 +2063,9 @@ export function BattleScreen({
               className="cursor-pointer rounded-lg border border-emerald-400/50 bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-500"
             >
               {node.type === 'boss_battle'
-                ? 'เสร็จสิ้นภารกิจ (Finish Run) →'
+                ? (node.stage ?? 1) < 3
+                  ? `รับรางวัลผ่าน Stage ${node.stage ?? 1} (+75% HP/EN) →`
+                  : 'เสร็จสิ้นภารกิจ (Finish Run) →'
                 : 'สุ่มรางวัลอัปเกรด (3-Card Draft) →'}
             </button>
           ) : (

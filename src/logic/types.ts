@@ -62,6 +62,7 @@ export interface WeaponData {
   allowed_mechas?: string[];
   signatureMechaName?: string;
   description?: string;
+  level?: number;
 }
 
 export type CardinalDirection = 'up' | 'down' | 'left' | 'right';
@@ -117,6 +118,7 @@ export interface MechaData {
   repairSkill?: RepairSkillData;
   hasDangerZoneSkill?: boolean;
   dangerZoneWeapon?: WeaponData;
+  hitAndAwaySteps?: number;
 }
 
 export interface PilotData {
@@ -134,6 +136,8 @@ export interface PilotData {
 export interface UnitDefinition {
   instanceId: string;
   faction: Faction;
+  stage?: 1 | 2 | 3;
+  enemyRole?: 'standard' | 'elite' | 'boss';
   isSupportAlly?: boolean;
   archetype?: string;
   description?: string;
@@ -245,6 +249,27 @@ export interface RunNodeData {
   description: string;
   enemySpawns?: EnemySpawnConfig[];
   eventConfig?: NodeEventConfig;
+  stage?: 1 | 2 | 3;
+  floor?: number;
+  lane?: number;
+  laneCount?: number;
+  nextNodeIds?: string[];
+}
+
+export interface BranchingMapNode extends RunNodeData {
+  stage: 1 | 2 | 3;
+  floor: number;
+  lane: number;
+  laneCount: number;
+  nextNodeIds: string[];
+}
+
+export interface BranchingStageMap {
+  stage: 1 | 2 | 3;
+  stageTitle: string;
+  seed: number;
+  floors: BranchingMapNode[][];
+  nodesById: Record<string, BranchingMapNode>;
 }
 
 export type UpgradeCategory = 'power_parts' | 'weapon_tech' | 'tactical_chips';
@@ -279,7 +304,14 @@ export interface UpgradeCardData {
 
 export type DraftChoice =
   | { kind: 'upgrade'; card: UpgradeCardData }
-  | { kind: 'weapon'; weapon: WeaponData };
+  | { kind: 'weapon'; weapon: WeaponData }
+  | {
+      kind: 'weapon_rankup';
+      weapon: WeaponData;
+      nextLevel: number;
+      powerDelta: number;
+      enDelta: number;
+    };
 
 export interface RunPlayerState {
   unitDefId: string;

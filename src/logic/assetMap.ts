@@ -8,6 +8,9 @@ const MECHA_SPRITE_MAP: Record<string, string> = {
   sentinel_mk1: '/assets/enemy_grunt.png',
   viper_scout: '/assets/enemy_grunt.png',
   crimson_commander: '/assets/enemy_elite.png',
+  boss_stage1_ares: '/assets/boss_stage1_ares.png',
+  boss_stage2_chronos: '/assets/boss_stage2_chronos.png',
+  boss_overlord: '/assets/boss_overlord.png',
   overlord_dreadnought: '/assets/boss_overlord.png',
   aegis_omega: '/assets/boss_overlord.png',
 };
@@ -17,6 +20,9 @@ const MECHA_CUTIN_MAP: Record<string, string> = {
   aegis_01: '/assets/mech_giga_rex_cutin.png',
   valkyrie_x: '/assets/mech_valkyrie_x_cutin.png',
   aegis_medic: '/assets/mech_aegis_medic_cutin.png',
+  boss_stage1_ares: '/assets/boss_stage1_ares_cutin.png',
+  boss_stage2_chronos: '/assets/boss_stage2_chronos_cutin.png',
+  boss_overlord: '/assets/boss_overlord_cutin.png',
   overlord_dreadnought: '/assets/boss_overlord_cutin.png',
   aegis_omega: '/assets/boss_overlord_cutin.png',
 };
@@ -33,7 +39,9 @@ export function getMechaSpriteUrl(
 ): string | null {
   if (
     bossPhase2 &&
-    (mechaId === 'overlord_dreadnought' || mechaId === 'aegis_omega')
+    (mechaId === 'boss_overlord' ||
+      mechaId === 'overlord_dreadnought' ||
+      mechaId === 'aegis_omega')
   ) {
     return '/assets/boss_overlord_phase2.png';
   }
@@ -49,6 +57,10 @@ export function getPilotPortraitUrl(pilotId: string): string | null {
 }
 
 export function getBattleBackgroundUrl(node: RunNodeData): string {
+  if (node.stage === 1) return '/assets/bg_battle_city.png';
+  if (node.stage === 2) return '/assets/bg_battle_space.png';
+  if (node.stage === 3) return '/assets/bg_battle_boss.png';
+
   if (node.type === 'boss_battle' || node.nodeNumber === 7) {
     return '/assets/bg_battle_boss.png';
   }

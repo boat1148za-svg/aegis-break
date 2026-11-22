@@ -6,12 +6,17 @@ type CardRarity = 'rare' | 'epic' | 'legendary';
 
 interface UpgradeDraftModalProps {
   nodeNumber: number;
+  stage?: 1 | 2 | 3;
+  stageClearBanner?: string | null;
   choices: DraftChoice[];
   equippedWeaponCount: number;
   onSelectChoice: (choice: DraftChoice) => void;
 }
 
 function getChoiceRarity(choice: DraftChoice): CardRarity {
+  if (choice.kind === 'weapon_rankup') {
+    return choice.nextLevel >= 3 ? 'legendary' : 'epic';
+  }
   if (choice.kind === 'weapon') {
     const w = choice.weapon;
     const isSignature = Boolean(
@@ -51,8 +56,7 @@ const RARITY_STYLES: Record<
     borderClass:
       'border-[#00f0ff]/70 bg-gradient-to-b from-[#08243a]/90 via-[#0b1528]/95 to-[#080c14]/98 hover:border-[#00f0ff]',
     glowShadow: '0 0 26px rgba(0, 240, 255, 0.24)',
-    badgeClass:
-      'border border-[#00f0ff]/60 bg-[#00f0ff]/20 text-[#00f0ff]',
+    badgeClass: 'border border-[#00f0ff]/60 bg-[#00f0ff]/20 text-[#00f0ff]',
     btnClass:
       'bg-gradient-to-r from-cyan-600 to-sky-500 group-hover:brightness-115',
     foilGradient:
@@ -64,8 +68,7 @@ const RARITY_STYLES: Record<
     borderClass:
       'border-purple-400/75 bg-gradient-to-b from-[#251142]/90 via-[#150e28]/95 to-[#080c14]/98 hover:border-purple-300',
     glowShadow: '0 0 28px rgba(168, 85, 247, 0.28)',
-    badgeClass:
-      'border border-purple-400/60 bg-purple-500/25 text-purple-200',
+    badgeClass: 'border border-purple-400/60 bg-purple-500/25 text-purple-200',
     btnClass:
       'bg-gradient-to-r from-purple-600 to-fuchsia-600 group-hover:brightness-115',
     foilGradient:
@@ -77,8 +80,7 @@ const RARITY_STYLES: Record<
     borderClass:
       'border-[#ffb800]/85 bg-gradient-to-b from-[#3b2505]/92 via-[#1c140a]/95 to-[#080c14]/98 hover:border-amber-300',
     glowShadow: '0 0 34px rgba(255, 184, 0, 0.34)',
-    badgeClass:
-      'border border-[#ffb800]/75 bg-[#ffb800]/25 text-[#ffb800]',
+    badgeClass: 'border border-[#ffb800]/75 bg-[#ffb800]/25 text-[#ffb800]',
     btnClass:
       'bg-gradient-to-r from-amber-500 to-orange-500 text-[#080c14] group-hover:brightness-115',
     foilGradient:
@@ -90,7 +92,7 @@ const RARITY_STYLES: Record<
 interface HoloTiltCardProps {
   rarity: CardRarity;
   testId: string;
-  cardKind: 'weapon' | 'upgrade';
+  cardKind: DraftChoice['kind'];
   itemId: string;
   onClick: () => void;
   children: ReactNode;
@@ -140,7 +142,11 @@ function HoloTiltCard({
       data-testid={testId}
       data-card-kind={cardKind}
       data-rarity={rarity}
-      data-weapon-id={cardKind === 'weapon' ? itemId : undefined}
+      data-weapon-id={
+        cardKind === 'weapon' || cardKind === 'weapon_rankup'
+          ? itemId
+          : undefined
+      }
       data-upgrade-id={cardKind === 'upgrade' ? itemId : undefined}
       onClick={onClick}
       onMouseMove={handleMouseMove}
@@ -188,6 +194,8 @@ function HoloTiltCard({
 
 export function UpgradeDraftModal({
   nodeNumber,
+  stage = 1,
+  stageClearBanner = null,
   choices,
   equippedWeaponCount,
   onSelectChoice,
@@ -203,11 +211,23 @@ export function UpgradeDraftModal({
         {/* Header */}
         <div className="border-b border-[#00f0ff]/25 bg-[#080c14]/90 px-6 py-5 text-center">
           <p className="font-orbitron text-[11px] font-extrabold tracking-[0.26em] text-[#ffb800] uppercase">
-            Node {nodeNumber} Victory · Holographic Tactical Draft
+            {stageClearBanner
+              ? `STAGE ${stage}/3 BOSS CLEARED · HIGH-TIER DRAFT`
+              : `STAGE ${stage}/3 · FLOOR ${nodeNumber} VICTORY · HOLOGRAPHIC DRAFT`}
           </p>
           <h2 className="font-orbitron mt-1.5 text-2xl font-black text-slate-50">
-            เลือกการ์ดอัปเกรดหรืออาวุธใหม่ 1 จาก 3 ใบ
+            {stageClearBanner
+              ? 'เลือกรางวัลผ่าน Stage ระดับสูง 1 จาก 3 ใบ'
+              : 'เลือกการ์ดอัปเกรด อาวุธใหม่ หรือตีบวกอาวุธ 1 จาก 3 ใบ'}
           </h2>
+          {stageClearBanner && (
+            <div
+              className="mx-auto mt-2.5 max-w-2xl rounded-lg border border-emerald-400/60 bg-emerald-950/50 px-4 py-1.5 text-xs font-bold text-emerald-200"
+              data-testid="stage-clear-bonus-banner"
+            >
+              {stageClearBanner}
+            </div>
+          )}
           <p className="mt-1.5 text-xs text-slate-400">
             ช่องอาวุธปัจจุบัน:{' '}
             <strong className="font-sci-num text-[#00f0ff]">
@@ -215,7 +235,7 @@ export function UpgradeDraftModal({
             </strong>{' '}
             ช่อง
             {equippedWeaponCount >= maxWeapons
-              ? ' (เต็มแล้ว — หากเลือกอาวุธใหม่จะเปิดหน้าต่างถอดเปลี่ยน)'
+              ? ' (เต็มแล้ว — หากเลือกอาวุธใหม่จะเปิดหน้าต่างถอดเปลี่ยน หรือเลือกตีบวกอาวุธเดิมได้)'
               : ' · เลื่อนเมาส์เหนือการ์ดเพื่อดูแสงโฮโลแกรม'}
           </p>
         </div>
@@ -225,6 +245,80 @@ export function UpgradeDraftModal({
           {choices.map((choice, index) => {
             const rarity = getChoiceRarity(choice);
             const rStyle = RARITY_STYLES[rarity];
+
+            if (choice.kind === 'weapon_rankup') {
+              const w = choice.weapon;
+              const prevLv = choice.nextLevel - 1;
+
+              return (
+                <HoloTiltCard
+                  key={`rankup-${w.id}`}
+                  rarity={rarity}
+                  testId={`draft-card-${index}`}
+                  cardKind="weapon_rankup"
+                  itemId={w.id}
+                  onClick={() => onSelectChoice(choice)}
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
+                      <span
+                        className={`font-orbitron rounded px-2 py-0.5 text-[9px] font-extrabold tracking-widest uppercase ${rStyle.badgeClass}`}
+                      >
+                        ⬆️ RANK-UP · Lv.{prevLv} → Lv.{choice.nextLevel}
+                      </span>
+                      <span className="font-orbitron rounded bg-[#080c14]/85 px-1.5 py-0.5 text-[9px] font-bold text-slate-300 uppercase">
+                        {w.type}
+                      </span>
+                    </div>
+
+                    <div className="mt-3.5 flex items-center gap-2.5">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#ffb800]/50 bg-[#080c14]/90 text-2xl shadow-inner">
+                        🔨
+                      </span>
+                      <div>
+                        <div className="font-orbitron text-sm font-extrabold text-white">
+                          {w.name}
+                        </div>
+                        <div className="text-[11px] font-bold text-[#ffb800]">
+                          อัปเกรดระดับอาวุธที่ติดตั้งอยู่
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="font-sci-num mt-3.5 grid grid-cols-2 gap-1.5 rounded-lg border border-white/10 bg-[#080c14]/80 p-2.5 text-[11px] text-slate-300">
+                      <div>
+                        PWR {w.power} →{' '}
+                        <strong className="text-emerald-300">
+                          {w.power + choice.powerDelta}
+                        </strong>
+                      </div>
+                      <div>
+                        EN {w.enCost} →{' '}
+                        <strong className="text-[#00f0ff]">
+                          {Math.max(0, w.enCost - choice.enDelta)}
+                        </strong>
+                      </div>
+                      <div className="col-span-2 font-sans font-bold text-[#ffb800]">
+                        ✨ พลังโจมตี +{choice.powerDelta} PWR
+                        {choice.enDelta > 0
+                          ? ` · ประหยัด EN -${choice.enDelta}`
+                          : ''}
+                      </div>
+                    </div>
+
+                    <p className="mt-2.5 text-xs leading-relaxed text-slate-300">
+                      ตีบวกเพิ่มประสิทธิภาพอาวุธหลักโดยไม่เปลืองช่องติดตั้งอาวุธ
+                    </p>
+                  </div>
+
+                  <div
+                    className={`hud-btn font-orbitron mt-4 py-2.5 text-center text-xs font-extrabold tracking-wider text-white transition ${rStyle.btnClass}`}
+                  >
+                    UPGRADE TO LV.{choice.nextLevel}
+                  </div>
+                </HoloTiltCard>
+              );
+            }
 
             if (choice.kind === 'weapon') {
               const w = choice.weapon;

@@ -258,6 +258,42 @@ export function chooseEnemyMoveTarget(
 }
 
 /**
+ * Hit & Away (Stage 2 Boss Chronos-Phantom): moves up to `maxSteps` tiles
+ * away to maximize Manhattan distance from the nearest alive player unit.
+ */
+export function chooseHitAndAwayRetreatTile(
+  unit: BattleUnit,
+  maxSteps: number,
+  map: StageMapData,
+  units: BattleUnit[]
+): GridPosition {
+  const playerUnits = units.filter((u) => u.faction === 'player' && u.hp > 0);
+  if (playerUnits.length === 0 || maxSteps <= 0) return unit.position;
+
+  const minPlayerDist = (tile: GridPosition) =>
+    Math.min(...playerUnits.map((p) => getManhattanDistance(tile, p.position)));
+
+  const candidates = getReachableTiles(
+    { ...unit, momentumMoveLimit: maxSteps },
+    map,
+    units
+  );
+
+  let bestTile = unit.position;
+  let bestDist = minPlayerDist(unit.position);
+
+  for (const tile of candidates) {
+    const d = minPlayerDist(tile);
+    if (d > bestDist) {
+      bestDist = d;
+      bestTile = tile;
+    }
+  }
+
+  return bestTile;
+}
+
+/**
  * Resolves Knockback & Collision along a straight line from attacker -> target.
  * - Pushes target up to `knockbackDistance` tiles.
  * - If blocked by border, obstacle, or another unit: stops before the blocker,

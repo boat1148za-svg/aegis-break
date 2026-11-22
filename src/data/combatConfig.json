@@ -74,7 +74,42 @@
     "willGain": 15
   },
   "weapons": {
-    "maxSlots": 5
+    "maxSlots": 5,
+    "maxLevel": 3,
+    "rankUpPowerBonus": 250,
+    "rankUpEnReduction": 2,
+    "minEnCost": 1
+  },
+  "campaign": {
+    "totalStages": 3,
+    "floorsPerStage": 6,
+    "stageClearHealPercent": 75
+  },
+  "draftWeightsByStage": {
+    "1": {
+      "power_parts": 36,
+      "universal_weapon": 30,
+      "weapon_rankup": 14,
+      "weapon_tech": 12,
+      "tactical_chips": 5,
+      "signature_weapon": 3
+    },
+    "2": {
+      "power_parts": 14,
+      "universal_weapon": 8,
+      "weapon_rankup": 22,
+      "weapon_tech": 18,
+      "tactical_chips": 20,
+      "signature_weapon": 18
+    },
+    "3": {
+      "power_parts": 6,
+      "universal_weapon": 4,
+      "weapon_rankup": 24,
+      "weapon_tech": 12,
+      "tactical_chips": 28,
+      "signature_weapon": 26
+    }
   },
   "bossPhase2": {
     "hpThresholdPercent": 50

@@ -61,8 +61,13 @@ export function WeaponSwapModal({
                 className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-slate-800 bg-slate-950/75 px-4 py-3 text-left transition hover:border-rose-400 hover:bg-rose-950/25"
               >
                 <div>
-                  <div className="text-sm font-bold text-slate-100">
+                  <div className="flex items-center gap-1.5 text-sm font-bold text-slate-100">
                     {w.name}
+                    {(w.level ?? 1) > 1 && (
+                      <span className="font-sci-num rounded border border-[#ffb800]/60 bg-[#ffb800]/20 px-1.5 py-0.5 text-[10px] font-extrabold text-[#ffb800]">
+                        Lv.{w.level}
+                      </span>
+                    )}
                   </div>
                   <div className="mt-0.5 flex flex-wrap gap-3 text-[11px] text-slate-400">
                     <span>PWR {w.power}</span>

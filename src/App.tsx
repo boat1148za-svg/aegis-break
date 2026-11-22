@@ -15,9 +15,10 @@ import { audioEngine } from './logic/audioEngine';
 import {
   combatConfig,
   createRunPlayerState,
+  getEffectivePlayerMecha,
   getUnitDefById,
-  runNodes,
 } from './logic/dataLoader';
+import { createRandomSeed, generateStageMap } from './logic/mapGenerator';
 import {
   calculateRunShardsReward,
   loadMetaProgress,
@@ -34,9 +35,11 @@ import {
 import {
   equipWeaponOnRunPlayer,
   installUpgradeOnRunPlayer,
+  rankUpWeaponOnRunPlayer,
   rollPostBattleDraftChoices,
 } from './logic/upgradeLogic';
 import type {
+  BranchingStageMap,
   DraftChoice,
   MetaProgressState,
   RunNodeData,
@@ -50,6 +53,7 @@ interface PendingDraft {
   node: RunNodeData;
   playerAfterBattle: RunPlayerState;
   choices: DraftChoice[];
+  stageClearBanner?: string | null;
 }
 
 interface PendingWeaponSwap {
@@ -63,6 +67,13 @@ interface ActiveAmbush {
   fallbackShards?: number;
 }
 
+interface PendingStageAdvance {
+  nextStage: 2 | 3;
+}
+
+const TOTAL_CAMPAIGN_FLOORS =
+  combatConfig.campaign.totalStages * combatConfig.campaign.floorsPerStage;
+
 export function App() {
   const [meta, setMeta] = useState<MetaProgressState>(loadMetaProgress);
   const [savedRun, setSavedRun] = useState<SavedRunState | null>(loadSavedRun);
@@ -70,15 +81,21 @@ export function App() {
   const [screen, setScreen] = useState<ScreenView>('TITLE');
   const [runPlayer, setRunPlayer] = useState<RunPlayerState | null>(null);
   const [runThreatLevel, setRunThreatLevel] = useState(0);
-  const [currentNodeIndex, setCurrentNodeIndex] = useState(0);
+  const [currentStage, setCurrentStage] = useState<1 | 2 | 3>(1);
+  const [stageMap, setStageMap] = useState<BranchingStageMap | null>(null);
+  const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [clearedNodeIds, setClearedNodeIds] = useState<string[]>([]);
+  const [totalFloorsCleared, setTotalFloorsCleared] = useState(0);
+  const [runSeed, setRunSeed] = useState<number>(createRandomSeed);
   const [activeNode, setActiveNode] = useState<RunNodeData | null>(null);
   const [activeAmbush, setActiveAmbush] = useState<ActiveAmbush | null>(null);
   const [pendingDraft, setPendingDraft] = useState<PendingDraft | null>(null);
   const [pendingSwap, setPendingSwap] = useState<PendingWeaponSwap | null>(null);
+  const [pendingStageAdvance, setPendingStageAdvance] =
+    useState<PendingStageAdvance | null>(null);
   const [runSummary, setRunSummary] = useState<RunSummaryData | null>(null);
 
-  const runVictory = clearedNodeIds.length >= runNodes.length;
+  const runVictory = totalFloorsCleared >= TOTAL_CAMPAIGN_FLOORS;
 
   // Unlock Web Audio Context on first user click anywhere
   useEffect(() => {
@@ -91,8 +108,6 @@ export function App() {
   useEffect(() => {
     if (screen === 'BATTLE' && activeNode?.type === 'boss_battle' && !activeAmbush) {
       audioEngine.setBgmTrack('boss');
-    } else if (screen === 'TITLE' || screen === 'RUN_END') {
-      audioEngine.setBgmTrack('standard');
     } else {
       audioEngine.setBgmTrack('standard');
     }
@@ -128,14 +143,22 @@ export function App() {
   const persistProgress = (
     player: RunPlayerState,
     threatLevel: number,
-    nodeIdx: number,
-    cleared: string[]
+    stage: 1 | 2 | 3,
+    map: BranchingStageMap,
+    nodeId: string | null,
+    cleared: string[],
+    floorsCleared: number,
+    seed: number
   ) => {
-    const payload = {
+    const payload: Omit<SavedRunState, 'savedAt'> = {
       runPlayer: player,
       runThreatLevel: threatLevel,
-      currentNodeIndex: nodeIdx,
+      currentStage: stage,
+      stageMap: map,
+      currentNodeId: nodeId,
       clearedNodeIds: cleared,
+      totalFloorsCleared: floorsCleared,
+      runSeed: seed,
     };
     saveActiveRun(payload);
     setSavedRun({ ...payload, savedAt: Date.now() });
@@ -144,21 +167,39 @@ export function App() {
   const handleStartRun = (
     unitDefId: string,
     startingAllyIds: string[],
-    threatLevel: number
+    threatLevel: number,
+    seedInput?: number
   ) => {
     audioEngine.unlock();
     audioEngine.playSfx('click');
+    const seed = seedInput ?? createRandomSeed();
+    const initialMap = generateStageMap(1, seed);
     const initialPlayer = createRunPlayerState(unitDefId, meta, startingAllyIds);
+
     setRunPlayer(initialPlayer);
     setRunThreatLevel(threatLevel);
-    setCurrentNodeIndex(0);
+    setCurrentStage(1);
+    setStageMap(initialMap);
+    setCurrentNodeId(null);
     setClearedNodeIds([]);
+    setTotalFloorsCleared(0);
+    setRunSeed(seed);
     setActiveNode(null);
     setActiveAmbush(null);
     setPendingDraft(null);
     setPendingSwap(null);
+    setPendingStageAdvance(null);
     setRunSummary(null);
-    persistProgress(initialPlayer, threatLevel, 0, []);
+    persistProgress(
+      initialPlayer,
+      threatLevel,
+      1,
+      initialMap,
+      null,
+      [],
+      0,
+      seed
+    );
     setScreen('NODE_MAP');
   };
 
@@ -168,12 +209,17 @@ export function App() {
     audioEngine.playSfx('click');
     setRunPlayer(savedRun.runPlayer);
     setRunThreatLevel(savedRun.runThreatLevel);
-    setCurrentNodeIndex(savedRun.currentNodeIndex);
+    setCurrentStage(savedRun.currentStage);
+    setStageMap(savedRun.stageMap);
+    setCurrentNodeId(savedRun.currentNodeId);
     setClearedNodeIds(savedRun.clearedNodeIds);
+    setTotalFloorsCleared(savedRun.totalFloorsCleared);
+    setRunSeed(savedRun.runSeed);
     setActiveNode(null);
     setActiveAmbush(null);
     setPendingDraft(null);
     setPendingSwap(null);
+    setPendingStageAdvance(null);
     setRunSummary(null);
     setScreen('NODE_MAP');
   };
@@ -181,12 +227,16 @@ export function App() {
   const handleReturnToHangar = () => {
     audioEngine.playSfx('click');
     setRunPlayer(null);
-    setCurrentNodeIndex(0);
+    setCurrentStage(1);
+    setStageMap(null);
+    setCurrentNodeId(null);
     setClearedNodeIds([]);
+    setTotalFloorsCleared(0);
     setActiveNode(null);
     setActiveAmbush(null);
     setPendingDraft(null);
     setPendingSwap(null);
+    setPendingStageAdvance(null);
     setRunSummary(null);
     setSavedRun(loadSavedRun());
     setScreen('HANGAR');
@@ -206,21 +256,37 @@ export function App() {
 
   const handleTriggerAmbushBattle = (ambush: AmbushRequest) => {
     if (!activeNode) return;
+    const stageNum = activeNode.stage ?? currentStage;
+    const gruntId =
+      stageNum === 3
+        ? 'enemy_sentinel_s3'
+        : stageNum === 2
+          ? 'enemy_sentinel_s2'
+          : 'enemy_sentinel';
+    const scoutId =
+      stageNum === 3
+        ? 'enemy_viper_s3'
+        : stageNum === 2
+          ? 'enemy_viper_s2'
+          : 'enemy_viper';
+
     const ambushNode: RunNodeData = {
       id: `${activeNode.id}_ambush`,
       nodeNumber: activeNode.nodeNumber,
+      stage: stageNum,
+      floor: activeNode.floor,
       title: 'Distress Signal Rescue',
       type: 'standard_battle',
       typeLabel: 'Rescue Skirmish',
       description: 'กำจัดศัตรูกลุ่มย่อยเพื่อช่วยพันธมิตรเข้าทีม!',
       enemySpawns: [
         {
-          templateId: 'enemy_sentinel',
+          templateId: gruntId,
           labelSuffix: 'Raider',
           position: { row: 1, col: 5 },
         },
         {
-          templateId: 'enemy_viper',
+          templateId: scoutId,
           labelSuffix: 'Scout',
           position: { row: 2, col: 6 },
         },
@@ -238,14 +304,14 @@ export function App() {
 
   const triggerRunEnd = (
     outcome: 'victory' | 'defeat',
-    nodesClearedCount: number,
+    floorsClearedCount: number,
     playerSnapshot: RunPlayerState
   ) => {
     clearSavedRun();
     setSavedRun(null);
 
     const reward = calculateRunShardsReward(
-      nodesClearedCount,
+      floorsClearedCount,
       outcome === 'victory',
       runThreatLevel
     );
@@ -277,8 +343,8 @@ export function App() {
       unitDefId: playerSnapshot.unitDefId,
       threatLevel: runThreatLevel,
       unlockedNewThreatLevel,
-      nodesCleared: nodesClearedCount,
-      totalNodes: runNodes.length,
+      nodesCleared: floorsClearedCount,
+      totalNodes: TOTAL_CAMPAIGN_FLOORS,
       installedUpgradeCount: playerSnapshot.installedUpgradeIds.length,
       shardsFromNodes: reward.shardsFromNodes,
       bonusShards: reward.bonusShards,
@@ -290,6 +356,7 @@ export function App() {
     setActiveAmbush(null);
     setPendingDraft(null);
     setPendingSwap(null);
+    setPendingStageAdvance(null);
     setScreen('RUN_END');
   };
 
@@ -302,21 +369,62 @@ export function App() {
       grantShardsImmediately(shardsEarned);
     }
 
-    const nextCleared = clearedNodeIds.includes(node.id)
-      ? clearedNodeIds
-      : [...clearedNodeIds, node.id];
-    const nextIdx = Math.min(runNodes.length, nextCleared.length);
-
+    const nextFloorsCleared = totalFloorsCleared + 1;
     setRunPlayer(updatedPlayer);
-    setClearedNodeIds(nextCleared);
-    setCurrentNodeIndex(nextIdx);
+    setTotalFloorsCleared(nextFloorsCleared);
 
-    if (node.type === 'boss_battle' || nextCleared.length >= runNodes.length) {
-      triggerRunEnd('victory', nextCleared.length, updatedPlayer);
+    // Stage 1 -> Stage 2 or Stage 2 -> Stage 3 transition after Stage Boss + High-Tier Draft
+    if (pendingStageAdvance) {
+      const nextStage = pendingStageAdvance.nextStage;
+      const nextMap = generateStageMap(nextStage, runSeed + nextStage * 9973);
+
+      setCurrentStage(nextStage);
+      setStageMap(nextMap);
+      setCurrentNodeId(null);
+      setClearedNodeIds([]);
+      setPendingStageAdvance(null);
+      persistProgress(
+        updatedPlayer,
+        runThreatLevel,
+        nextStage,
+        nextMap,
+        null,
+        [],
+        nextFloorsCleared,
+        runSeed
+      );
+      setActiveNode(null);
+      setActiveAmbush(null);
+      setPendingDraft(null);
+      setPendingSwap(null);
+      setScreen('NODE_MAP');
       return;
     }
 
-    persistProgress(updatedPlayer, runThreatLevel, nextIdx, nextCleared);
+    // Final Stage 3 Boss Victory -> Run Complete!
+    if (node.type === 'boss_battle' && currentStage >= 3) {
+      triggerRunEnd('victory', nextFloorsCleared, updatedPlayer);
+      return;
+    }
+
+    const nextCleared = clearedNodeIds.includes(node.id)
+      ? clearedNodeIds
+      : [...clearedNodeIds, node.id];
+    setCurrentNodeId(node.id);
+    setClearedNodeIds(nextCleared);
+
+    if (stageMap) {
+      persistProgress(
+        updatedPlayer,
+        runThreatLevel,
+        currentStage,
+        stageMap,
+        node.id,
+        nextCleared,
+        nextFloorsCleared,
+        runSeed
+      );
+    }
     setActiveNode(null);
     setActiveAmbush(null);
     setPendingDraft(null);
@@ -356,10 +464,77 @@ export function App() {
 
     if (!activeNode) return;
 
+    const mainDef = getUnitDefById(updatedPlayer.unitDefId);
+    const mechaId = mainDef?.mecha.id ?? 'giga_rex';
+
+    // Stage 1 or Stage 2 Boss Cleared -> +75% HP & EN Stage Clear Bonus + High-Tier Draft!
+    if (activeNode.type === 'boss_battle' && currentStage < 3) {
+      const effectiveMecha = getEffectivePlayerMecha(updatedPlayer, meta);
+      const healPct = combatConfig.campaign.stageClearHealPercent;
+      const healedPlayer: RunPlayerState = {
+        ...updatedPlayer,
+        hp: Math.min(
+          effectiveMecha.maxHp,
+          updatedPlayer.hp + Math.round((effectiveMecha.maxHp * healPct) / 100)
+        ),
+        en: Math.min(
+          effectiveMecha.maxEn,
+          updatedPlayer.en + Math.round((effectiveMecha.maxEn * healPct) / 100)
+        ),
+      };
+
+      const highTierChoices = rollPostBattleDraftChoices(
+        healedPlayer,
+        mechaId,
+        currentStage,
+        3,
+        true
+      );
+      const nextStage = (currentStage + 1) as 2 | 3;
+
+      if (highTierChoices.length > 0) {
+        setPendingStageAdvance({ nextStage });
+        setPendingDraft({
+          node: activeNode,
+          playerAfterBattle: healedPlayer,
+          choices: highTierChoices,
+          stageClearBanner: `🎉 STAGE ${currentStage}/3 CLEAR BONUS — ฟื้นฟู HP +${healPct}% และ EN +${healPct}% ให้หุ่นทุกเครื่องแล้ว! เลือกรางวัลระดับสูงก่อนเข้าสู่ Stage ${nextStage}/3`,
+        });
+        return;
+      }
+
+      const nextMap = generateStageMap(nextStage, runSeed + nextStage * 9973);
+      setCurrentStage(nextStage);
+      setStageMap(nextMap);
+      setCurrentNodeId(null);
+      setClearedNodeIds([]);
+      const nextFloorsCleared = totalFloorsCleared + 1;
+      setRunPlayer(healedPlayer);
+      setTotalFloorsCleared(nextFloorsCleared);
+      persistProgress(
+        healedPlayer,
+        runThreatLevel,
+        nextStage,
+        nextMap,
+        null,
+        [],
+        nextFloorsCleared,
+        runSeed
+      );
+      setActiveNode(null);
+      setScreen('NODE_MAP');
+      return;
+    }
+
+    // Normal / Elite post-battle draft weighted by current Stage
     if (activeNode.type !== 'boss_battle') {
-      const mainDef = getUnitDefById(updatedPlayer.unitDefId);
-      const mechaId = mainDef?.mecha.id ?? 'giga_rex';
-      const choices = rollPostBattleDraftChoices(updatedPlayer, mechaId, 3);
+      const choices = rollPostBattleDraftChoices(
+        updatedPlayer,
+        mechaId,
+        currentStage,
+        3,
+        false
+      );
       if (choices.length > 0) {
         setPendingDraft({
           node: activeNode,
@@ -378,7 +553,7 @@ export function App() {
       handleReturnToHangar();
       return;
     }
-    triggerRunEnd('defeat', clearedNodeIds.length, runPlayer);
+    triggerRunEnd('defeat', totalFloorsCleared, runPlayer);
   };
 
   const handleSelectDraftChoice = (choice: DraftChoice) => {
@@ -391,6 +566,15 @@ export function App() {
         choice.card
       );
       finalizeNodeAndReturnToMap(pendingDraft.node, upgradedPlayer);
+      return;
+    }
+
+    if (choice.kind === 'weapon_rankup') {
+      const rankedPlayer = rankUpWeaponOnRunPlayer(
+        pendingDraft.playerAfterBattle,
+        choice.weapon.id
+      );
+      finalizeNodeAndReturnToMap(pendingDraft.node, rankedPlayer);
       return;
     }
 
@@ -443,7 +627,7 @@ export function App() {
         onReturnToHangar={handleReturnToHangar}
       />
     );
-  } else if (screen === 'HANGAR' || !runPlayer) {
+  } else if (screen === 'HANGAR' || !runPlayer || !stageMap) {
     content = (
       <HangarScreen
         meta={meta}
@@ -488,7 +672,9 @@ export function App() {
         />
         {pendingDraft && !pendingSwap && (
           <UpgradeDraftModal
-            nodeNumber={pendingDraft.node.nodeNumber}
+            nodeNumber={pendingDraft.node.floor ?? pendingDraft.node.nodeNumber}
+            stage={currentStage}
+            stageClearBanner={pendingDraft.stageClearBanner}
             choices={pendingDraft.choices}
             equippedWeaponCount={
               pendingDraft.playerAfterBattle.equippedWeapons.length
@@ -509,9 +695,10 @@ export function App() {
   } else {
     content = (
       <NodeMapScreen
-        nodes={runNodes}
-        currentNodeIndex={currentNodeIndex}
+        stageMap={stageMap}
+        currentNodeId={currentNodeId}
         clearedNodeIds={clearedNodeIds}
+        totalFloorsCleared={totalFloorsCleared}
         runPlayer={runPlayer}
         meta={meta}
         runVictory={runVictory}

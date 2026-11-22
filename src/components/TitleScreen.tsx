@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getUnitDefById, runNodes } from '../logic/dataLoader';
+import { getUnitDefById } from '../logic/dataLoader';
 import type { SavedRunState } from '../logic/runSaveLogic';
 import { AmbientBackdrop } from './AmbientBackdrop';
 import { CompendiumModal } from './CompendiumModal';
@@ -170,10 +170,7 @@ export function TitleScreen({
             <div>▶️ CONTINUE</div>
             <div className="text-[10px] font-medium opacity-85">
               {savedRun
-                ? `${savedMechaName} · Node ${Math.min(
-                    runNodes.length,
-                    savedRun.currentNodeIndex + 1
-                  )}/${runNodes.length}`
+                ? `${savedMechaName} · Stage ${savedRun.currentStage}/3 · Floor ${savedRun.totalFloorsCleared}/18`
                 : 'ไม่มีเซฟค้างอยู่'}
             </div>
           </button>

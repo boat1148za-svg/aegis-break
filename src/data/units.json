@@ -171,6 +171,8 @@
   {
     "instanceId": "enemy_sentinel",
     "faction": "enemy",
+    "stage": 1,
+    "enemyRole": "standard",
     "icon": "👾",
     "shortName": "SNT",
     "startPosition": { "row": 1, "col": 5 },
@@ -226,6 +228,8 @@
   {
     "instanceId": "enemy_viper",
     "faction": "enemy",
+    "stage": 1,
+    "enemyRole": "standard",
     "icon": "🛸",
     "shortName": "VPR",
     "startPosition": { "row": 2, "col": 6 },
@@ -269,6 +273,8 @@
   {
     "instanceId": "enemy_commander",
     "faction": "enemy",
+    "stage": 1,
+    "enemyRole": "elite",
     "icon": "⚔️",
     "shortName": "CMD",
     "startPosition": { "row": 1, "col": 6 },
@@ -460,16 +466,496 @@
     }
   },
   {
+    "instanceId": "enemy_boss_stage1_ares",
+    "faction": "enemy",
+    "stage": 1,
+    "enemyRole": "boss",
+    "description": "บอสประจำ Stage 1 ป้อมปราการเดินได้เกราะเหล็กกล้า มีสกิลชาร์จยิง Danger Zone และค้อนยักษ์ Knockback 2",
+    "icon": "🛡️",
+    "shortName": "ARES",
+    "startPosition": { "row": 1, "col": 5 },
+    "mecha": {
+      "id": "boss_stage1_ares",
+      "name": "Ares-01: Siege Colossus",
+      "faction": "enemy",
+      "maxHp": 7500,
+      "maxEn": 180,
+      "armor": 500,
+      "mobility": 35,
+      "move": 2,
+      "hasDangerZoneSkill": true,
+      "dangerZoneWeapon": {
+        "id": "ares_siege_beam",
+        "name": "Ares Siege Beam",
+        "type": "ranged",
+        "power": 2600,
+        "accuracy": 40,
+        "minRange": 1,
+        "maxRange": 8,
+        "enCost": 0,
+        "ammo": null,
+        "willRequired": 100
+      },
+      "weaponIds": ["siege_plasma_cannon", "colossus_hammer"],
+      "weapons": [
+        {
+          "id": "siege_plasma_cannon",
+          "name": "Siege Plasma Cannon",
+          "type": "ranged",
+          "power": 2050,
+          "accuracy": 25,
+          "minRange": 2,
+          "maxRange": 5,
+          "enCost": 15,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "colossus_hammer",
+          "name": "Colossus Hammer",
+          "type": "melee",
+          "power": 2350,
+          "accuracy": 30,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 10,
+          "ammo": null,
+          "willRequired": 100,
+          "knockback": 2
+        }
+      ]
+    },
+    "pilot": {
+      "id": "ai_boss_ares",
+      "name": "General Marcus",
+      "faction": "enemy",
+      "melee": 118,
+      "ranged": 115,
+      "accuracy": 155,
+      "evade": 60,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  },
+  {
+    "instanceId": "enemy_sentinel_s2",
+    "faction": "enemy",
+    "stage": 2,
+    "enemyRole": "standard",
+    "icon": "👾",
+    "shortName": "SNT2",
+    "startPosition": { "row": 1, "col": 5 },
+    "mecha": {
+      "id": "sentinel_mk1",
+      "name": "Iron Sentinel Mk-II",
+      "faction": "enemy",
+      "maxHp": 4200,
+      "maxEn": 100,
+      "armor": 880,
+      "mobility": 42,
+      "move": 4,
+      "weaponIds": ["pulse_gun_s2", "plasma_blade_s2"],
+      "weapons": [
+        {
+          "id": "pulse_gun_s2",
+          "name": "Heavy Pulse Gun",
+          "type": "ranged",
+          "power": 1750,
+          "accuracy": 25,
+          "minRange": 1,
+          "maxRange": 4,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "plasma_blade_s2",
+          "name": "High-Freq Blade",
+          "type": "melee",
+          "power": 2050,
+          "accuracy": 30,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        }
+      ]
+    },
+    "pilot": {
+      "id": "ai_grunt_s2_1",
+      "name": "Automaton Sigma",
+      "faction": "enemy",
+      "melee": 110,
+      "ranged": 110,
+      "accuracy": 155,
+      "evade": 68,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  },
+  {
+    "instanceId": "enemy_viper_s2",
+    "faction": "enemy",
+    "stage": 2,
+    "enemyRole": "standard",
+    "icon": "🛸",
+    "shortName": "VPR2",
+    "startPosition": { "row": 2, "col": 6 },
+    "mecha": {
+      "id": "viper_scout",
+      "name": "Viper Interceptor",
+      "faction": "enemy",
+      "maxHp": 3600,
+      "maxEn": 110,
+      "armor": 700,
+      "mobility": 62,
+      "move": 5,
+      "weaponIds": ["pulse_gun_s2"],
+      "weapons": [
+        {
+          "id": "pulse_gun_s2",
+          "name": "Twin Pulse Cannon",
+          "type": "ranged",
+          "power": 1700,
+          "accuracy": 30,
+          "minRange": 1,
+          "maxRange": 4,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        }
+      ]
+    },
+    "pilot": {
+      "id": "ai_grunt_s2_2",
+      "name": "Automaton Delta",
+      "faction": "enemy",
+      "melee": 105,
+      "ranged": 115,
+      "accuracy": 160,
+      "evade": 78,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  },
+  {
+    "instanceId": "enemy_commander_s2",
+    "faction": "enemy",
+    "stage": 2,
+    "enemyRole": "elite",
+    "icon": "⚔️",
+    "shortName": "VNGD",
+    "startPosition": { "row": 1, "col": 6 },
+    "mecha": {
+      "id": "crimson_commander",
+      "name": "Crimson Vanguard",
+      "faction": "enemy",
+      "maxHp": 6800,
+      "maxEn": 140,
+      "armor": 1100,
+      "mobility": 62,
+      "move": 4,
+      "hasDangerZoneSkill": true,
+      "dangerZoneWeapon": {
+        "id": "crimson_lance_charge_s2",
+        "name": "Crimson Flare Lance",
+        "type": "ranged",
+        "power": 2800,
+        "accuracy": 45,
+        "minRange": 1,
+        "maxRange": 8,
+        "enCost": 0,
+        "ammo": null,
+        "willRequired": 100
+      },
+      "weaponIds": ["heavy_railgun_s2", "crimson_edge_s2"],
+      "weapons": [
+        {
+          "id": "heavy_railgun_s2",
+          "name": "Overcharged Railgun",
+          "type": "ranged",
+          "power": 2250,
+          "accuracy": 30,
+          "minRange": 2,
+          "maxRange": 5,
+          "enCost": 10,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "crimson_edge_s2",
+          "name": "Crimson Plasma Edge",
+          "type": "melee",
+          "power": 2500,
+          "accuracy": 35,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 10,
+          "ammo": null,
+          "willRequired": 100,
+          "knockback": 1
+        }
+      ]
+    },
+    "pilot": {
+      "id": "ai_commander_s2",
+      "name": "Commander Kaelen",
+      "faction": "enemy",
+      "melee": 122,
+      "ranged": 122,
+      "accuracy": 168,
+      "evade": 82,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  },
+  {
+    "instanceId": "enemy_boss_stage2_chronos",
+    "faction": "enemy",
+    "stage": 2,
+    "enemyRole": "boss",
+    "description": "บอสประจำ Stage 2 หุ่นลอบสังหารความเร็วแสง Mobility 115, Move 6 พร้อมความสามารถ Hit & Away ถอยหลัง 2 ช่องหลังโจมตี",
+    "icon": "⚡",
+    "shortName": "CHRNS",
+    "startPosition": { "row": 1, "col": 5 },
+    "mecha": {
+      "id": "boss_stage2_chronos",
+      "name": "Chronos-Phantom",
+      "faction": "enemy",
+      "maxHp": 9000,
+      "maxEn": 200,
+      "armor": 750,
+      "mobility": 115,
+      "move": 6,
+      "hitAndAwaySteps": 2,
+      "weaponIds": ["chronos_phase_rifle", "temporal_twin_blade"],
+      "weapons": [
+        {
+          "id": "chronos_phase_rifle",
+          "name": "Chronos Phase Rifle",
+          "type": "ranged",
+          "power": 2300,
+          "accuracy": 35,
+          "minRange": 2,
+          "maxRange": 5,
+          "enCost": 15,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "temporal_twin_blade",
+          "name": "Temporal Twin-Blade",
+          "type": "melee",
+          "power": 2550,
+          "accuracy": 40,
+          "minRange": 1,
+          "maxRange": 2,
+          "enCost": 15,
+          "ammo": null,
+          "willRequired": 100
+        }
+      ]
+    },
+    "pilot": {
+      "id": "ai_boss_chronos",
+      "name": "Phantom Unit-0",
+      "faction": "enemy",
+      "melee": 128,
+      "ranged": 128,
+      "accuracy": 175,
+      "evade": 92,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  },
+  {
+    "instanceId": "enemy_sentinel_s3",
+    "faction": "enemy",
+    "stage": 3,
+    "enemyRole": "standard",
+    "icon": "👾",
+    "shortName": "ENFC",
+    "startPosition": { "row": 1, "col": 5 },
+    "mecha": {
+      "id": "sentinel_mk1",
+      "name": "Aegis Enforcer",
+      "faction": "enemy",
+      "maxHp": 5400,
+      "maxEn": 120,
+      "armor": 1050,
+      "mobility": 55,
+      "move": 4,
+      "weaponIds": ["pulse_gun_s3", "plasma_blade_s3"],
+      "weapons": [
+        {
+          "id": "pulse_gun_s3",
+          "name": "Astral Pulse Cannon",
+          "type": "ranged",
+          "power": 2050,
+          "accuracy": 30,
+          "minRange": 1,
+          "maxRange": 4,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "plasma_blade_s3",
+          "name": "Astral Warblade",
+          "type": "melee",
+          "power": 2350,
+          "accuracy": 35,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        }
+      ]
+    },
+    "pilot": {
+      "id": "ai_grunt_s3_1",
+      "name": "Royal Automaton",
+      "faction": "enemy",
+      "melee": 120,
+      "ranged": 120,
+      "accuracy": 165,
+      "evade": 76,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  },
+  {
+    "instanceId": "enemy_viper_s3",
+    "faction": "enemy",
+    "stage": 3,
+    "enemyRole": "standard",
+    "icon": "🛸",
+    "shortName": "STRK",
+    "startPosition": { "row": 2, "col": 6 },
+    "mecha": {
+      "id": "viper_scout",
+      "name": "Phantom Striker",
+      "faction": "enemy",
+      "maxHp": 4600,
+      "maxEn": 120,
+      "armor": 850,
+      "mobility": 78,
+      "move": 5,
+      "weaponIds": ["pulse_gun_s3"],
+      "weapons": [
+        {
+          "id": "pulse_gun_s3",
+          "name": "Phantom Gatling Laser",
+          "type": "ranged",
+          "power": 1950,
+          "accuracy": 35,
+          "minRange": 1,
+          "maxRange": 4,
+          "enCost": 5,
+          "ammo": null,
+          "willRequired": 100
+        }
+      ]
+    },
+    "pilot": {
+      "id": "ai_grunt_s3_2",
+      "name": "Phantom Drone",
+      "faction": "enemy",
+      "melee": 115,
+      "ranged": 122,
+      "accuracy": 168,
+      "evade": 85,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  },
+  {
+    "instanceId": "enemy_commander_s3",
+    "faction": "enemy",
+    "stage": 3,
+    "enemyRole": "elite",
+    "icon": "⚔️",
+    "shortName": "PRTR",
+    "startPosition": { "row": 1, "col": 6 },
+    "mecha": {
+      "id": "crimson_commander",
+      "name": "Overlord Praetorian",
+      "faction": "enemy",
+      "maxHp": 8400,
+      "maxEn": 160,
+      "armor": 1250,
+      "mobility": 72,
+      "move": 4,
+      "hasDangerZoneSkill": true,
+      "dangerZoneWeapon": {
+        "id": "crimson_lance_charge_s3",
+        "name": "Praetorian Nova Lance",
+        "type": "ranged",
+        "power": 3100,
+        "accuracy": 45,
+        "minRange": 1,
+        "maxRange": 8,
+        "enCost": 0,
+        "ammo": null,
+        "willRequired": 100
+      },
+      "weaponIds": ["heavy_railgun_s3", "crimson_edge_s3"],
+      "weapons": [
+        {
+          "id": "heavy_railgun_s3",
+          "name": "Praetorian Rail-Cannon",
+          "type": "ranged",
+          "power": 2500,
+          "accuracy": 35,
+          "minRange": 2,
+          "maxRange": 5,
+          "enCost": 10,
+          "ammo": null,
+          "willRequired": 100
+        },
+        {
+          "id": "crimson_edge_s3",
+          "name": "Crimson Apocalypse",
+          "type": "melee",
+          "power": 2750,
+          "accuracy": 40,
+          "minRange": 1,
+          "maxRange": 1,
+          "enCost": 10,
+          "ammo": null,
+          "willRequired": 100,
+          "knockback": 1
+        }
+      ]
+    },
+    "pilot": {
+      "id": "ai_commander_s3",
+      "name": "Grand Praetorian",
+      "faction": "enemy",
+      "melee": 130,
+      "ranged": 130,
+      "accuracy": 175,
+      "evade": 86,
+      "maxSp": 0,
+      "spiritCommandIds": []
+    }
+  },
+  {
     "instanceId": "enemy_boss_dreadnought",
     "faction": "enemy",
+    "stage": 3,
+    "enemyRole": "boss",
+    "description": "บอสใหญ่ประจำ Stage 3 จอมพลจักรกลผู้ครองปราการสุดท้าย HP 14,000 พร้อมร่าง Phase 2 เมื่อ HP ต่ำกว่า 50%",
     "icon": "👹",
     "shortName": "OVRLD",
     "startPosition": { "row": 1, "col": 5 },
     "mecha": {
-      "id": "overlord_dreadnought",
+      "id": "boss_overlord",
       "name": "Overlord Dreadnought",
       "faction": "enemy",
-      "maxHp": 12000,
+      "maxHp": 14000,
       "maxEn": 240,
       "armor": 1350,
       "mobility": 50,

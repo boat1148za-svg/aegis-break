@@ -129,21 +129,61 @@ export function equipWeaponOnRunPlayer(
   replaceWeaponId?: string
 ): RunPlayerState {
   const maxSlots = combatConfigJson.weapons.maxSlots;
+  const normalizedWeapon: WeaponData = {
+    ...newWeapon,
+    level: newWeapon.level ?? 1,
+  };
   const current = [...runPlayer.equippedWeapons];
 
   if (replaceWeaponId) {
     const idx = current.findIndex((w) => w.id === replaceWeaponId);
     if (idx >= 0) {
-      current[idx] = newWeapon;
+      current[idx] = normalizedWeapon;
       return { ...runPlayer, equippedWeapons: current };
     }
   }
 
   if (current.length < maxSlots) {
-    return { ...runPlayer, equippedWeapons: [...current, newWeapon] };
+    return {
+      ...runPlayer,
+      equippedWeapons: [...current, normalizedWeapon],
+    };
   }
 
   return runPlayer;
+}
+
+/**
+ * Ranks up an equipped weapon by +1 level (up to maxLevel 3),
+ * adding +250 Power and reducing EN cost by -2 (min 1).
+ */
+export function rankUpWeaponOnRunPlayer(
+  runPlayer: RunPlayerState,
+  weaponId: string
+): RunPlayerState {
+  const { maxLevel, rankUpPowerBonus, rankUpEnReduction, minEnCost } =
+    combatConfigJson.weapons;
+
+  return {
+    ...runPlayer,
+    equippedWeapons: runPlayer.equippedWeapons.map((w) => {
+      if (w.id !== weaponId) return w;
+      const currentLevel = w.level ?? 1;
+      if (currentLevel >= maxLevel) return w;
+
+      const nextEn =
+        w.enCost > 0
+          ? Math.max(minEnCost, w.enCost - rankUpEnReduction)
+          : 0;
+
+      return {
+        ...w,
+        level: currentLevel + 1,
+        power: w.power + rankUpPowerBonus,
+        enCost: nextEn,
+      };
+    }),
+  };
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -155,37 +195,131 @@ function shuffle<T>(items: T[]): T[] {
   return copy;
 }
 
+type DraftPoolKey =
+  | 'power_parts'
+  | 'weapon_tech'
+  | 'tactical_chips'
+  | 'universal_weapon'
+  | 'signature_weapon'
+  | 'weapon_rankup';
+
+const HIGH_TIER_KEYS = new Set<DraftPoolKey>([
+  'tactical_chips',
+  'signature_weapon',
+  'weapon_rankup',
+  'weapon_tech',
+]);
+
 /**
- * Rolls 3 distinct Post-Battle Draft choices mixing Upgrades and New Weapons
- * (filtered by the player's mecha compatibility). Guarantees at least 1 Weapon
- * card whenever eligible weapons remain in the pool.
+ * Rolls 3 distinct Post-Battle Draft choices weighted by current Stage (1–3):
+ * - Stage 1 focuses on Power Parts & Universal Weapons + Weapon Rank-Up.
+ * - Stage 2 & Stage 3 increase odds of high-tier Tactical Chips, Signature Weapons, and Rank-Ups.
+ * - `highTierOnly` (Stage Clear Bonus) picks strictly from Tactical Chips, Signature Weapons,
+ *   Weapon Rank-Ups, or Weapon Tech.
  */
 export function rollPostBattleDraftChoices(
   runPlayer: RunPlayerState,
   mechaId: string,
-  count: number = 3
+  stage: 1 | 2 | 3 = 1,
+  count: number = 3,
+  highTierOnly: boolean = false
 ): DraftChoice[] {
-  const upgradePool: DraftChoice[] = shuffle(
-    upgradeCards.filter(
-      (card) => !(card.unique && runPlayer.installedUpgradeIds.includes(card.id))
-    )
-  ).map((card) => ({ kind: 'upgrade', card }));
+  const { maxLevel, rankUpPowerBonus, rankUpEnReduction, minEnCost } =
+    combatConfigJson.weapons;
+  const stageWeights =
+    combatConfigJson.draftWeightsByStage[
+      String(stage) as '1' | '2' | '3'
+    ] ?? combatConfigJson.draftWeightsByStage['1'];
 
-  const eligibleWeapons: DraftChoice[] = shuffle(
-    getEligibleWeaponsForMecha(mechaId, runPlayer.equippedWeapons)
-  ).map((weapon) => ({ kind: 'weapon', weapon }));
+  const eligibleUpgrades = upgradeCards.filter(
+    (card) => !(card.unique && runPlayer.installedUpgradeIds.includes(card.id))
+  );
+  const eligibleNewWeapons = getEligibleWeaponsForMecha(
+    mechaId,
+    runPlayer.equippedWeapons
+  );
+
+  const pools: Record<DraftPoolKey, DraftChoice[]> = {
+    power_parts: shuffle(
+      eligibleUpgrades.filter((c) => c.category === 'power_parts')
+    ).map((card) => ({ kind: 'upgrade', card })),
+    weapon_tech: shuffle(
+      eligibleUpgrades.filter((c) => c.category === 'weapon_tech')
+    ).map((card) => ({ kind: 'upgrade', card })),
+    tactical_chips: shuffle(
+      eligibleUpgrades.filter((c) => c.category === 'tactical_chips')
+    ).map((card) => ({ kind: 'upgrade', card })),
+    universal_weapon: shuffle(
+      eligibleNewWeapons.filter((w) => (w.allowed_mechas ?? ['ALL']).includes('ALL'))
+    ).map((weapon) => ({ kind: 'weapon', weapon })),
+    signature_weapon: shuffle(
+      eligibleNewWeapons.filter((w) => !(w.allowed_mechas ?? ['ALL']).includes('ALL'))
+    ).map((weapon) => ({ kind: 'weapon', weapon })),
+    weapon_rankup: shuffle(
+      runPlayer.equippedWeapons.filter((w) => (w.level ?? 1) < maxLevel)
+    ).map((weapon) => {
+      const currentLevel = weapon.level ?? 1;
+      const enDelta =
+        weapon.enCost > minEnCost
+          ? Math.min(rankUpEnReduction, weapon.enCost - minEnCost)
+          : 0;
+      return {
+        kind: 'weapon_rankup',
+        weapon,
+        nextLevel: currentLevel + 1,
+        powerDelta: rankUpPowerBonus,
+        enDelta,
+      };
+    }),
+  };
 
   const result: DraftChoice[] = [];
+  const allKeys: DraftPoolKey[] = [
+    'power_parts',
+    'universal_weapon',
+    'weapon_rankup',
+    'weapon_tech',
+    'tactical_chips',
+    'signature_weapon',
+  ];
 
-  // Include 1 guaranteed compatible weapon if available
-  if (eligibleWeapons.length > 0) {
-    result.push(eligibleWeapons.shift()!);
+  const pickWeightedFrom = (allowedKeys: DraftPoolKey[]): DraftChoice | null => {
+    const available = allowedKeys.filter((k) => pools[k].length > 0);
+    if (available.length === 0) return null;
+
+    const totalWeight = available.reduce(
+      (sum, key) => sum + (stageWeights[key] ?? 1),
+      0
+    );
+    let roll = Math.random() * totalWeight;
+    for (const key of available) {
+      roll -= stageWeights[key] ?? 1;
+      if (roll <= 0) {
+        return pools[key].shift() ?? null;
+      }
+    }
+    const lastKey = available[available.length - 1];
+    return pools[lastKey].shift() ?? null;
+  };
+
+  // For standard post-battle drafts, guarantee at least 1 Weapon / Rank-Up option if available
+  if (!highTierOnly && count >= 3) {
+    const weaponChoice = pickWeightedFrom([
+      'universal_weapon',
+      'signature_weapon',
+      'weapon_rankup',
+    ]);
+    if (weaponChoice) result.push(weaponChoice);
   }
 
-  // Mix remaining upgrades and weapons for the remaining slots
-  const combinedRest = shuffle([...upgradePool, ...eligibleWeapons]);
-  while (result.length < count && combinedRest.length > 0) {
-    result.push(combinedRest.shift()!);
+  while (result.length < count) {
+    const primaryKeys = highTierOnly
+      ? allKeys.filter((k) => HIGH_TIER_KEYS.has(k))
+      : allKeys;
+    const picked =
+      pickWeightedFrom(primaryKeys) ?? pickWeightedFrom(allKeys);
+    if (!picked) break;
+    result.push(picked);
   }
 
   return shuffle(result);

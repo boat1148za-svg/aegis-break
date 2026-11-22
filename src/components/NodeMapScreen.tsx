@@ -4,10 +4,13 @@ import {
   getEffectivePlayerMecha,
   getUnitDefById,
 } from '../logic/dataLoader';
+import { getSelectableNodeIds } from '../logic/mapGenerator';
 import { AmbientBackdrop } from './AmbientBackdrop';
 import { InstalledUpgradesBar } from './InstalledUpgradesBar';
 import { MechaSprite } from './MechaSprite';
 import type {
+  BranchingMapNode,
+  BranchingStageMap,
   MetaProgressState,
   NodeType,
   RunNodeData,
@@ -15,9 +18,10 @@ import type {
 } from '../logic/types';
 
 interface NodeMapScreenProps {
-  nodes: RunNodeData[];
-  currentNodeIndex: number;
+  stageMap: BranchingStageMap;
+  currentNodeId: string | null;
   clearedNodeIds: string[];
+  totalFloorsCleared: number;
   runPlayer: RunPlayerState;
   meta: MetaProgressState;
   runVictory: boolean;
@@ -46,33 +50,37 @@ function getNodeAccent(type: NodeType): string {
   switch (type) {
     case 'repair_event':
     case 'repair_supply':
-      return 'border-emerald-400/55 text-emerald-300';
+      return 'border-emerald-400/75 text-emerald-300';
     case 'elite_battle':
     case 'hard_battle':
-      return 'border-[#ffb800]/60 text-[#ffb800]';
+      return 'border-[#ffb800]/80 text-[#ffb800]';
     case 'boss_battle':
-      return 'border-[#ff2a55]/75 text-[#ff2a55]';
+      return 'border-[#ff2a55]/85 text-[#ff2a55]';
     case 'standard_battle':
     default:
-      return 'border-[#00f0ff]/55 text-[#00f0ff]';
+      return 'border-[#00f0ff]/75 text-[#00f0ff]';
   }
 }
 
-// Tactical radar plot positions for the 7-Node sector trajectory (SVG viewBox 0 0 700 190)
-const RADAR_NODE_COORDS = [
-  { x: 55, y: 122 },
-  { x: 152, y: 74 },
-  { x: 250, y: 132 },
-  { x: 350, y: 66 },
-  { x: 450, y: 126 },
-  { x: 548, y: 72 },
-  { x: 645, y: 98 },
-];
+const SVG_WIDTH = 1200;
+const SVG_HEIGHT = 440;
+
+function getNodeCoords(node: BranchingMapNode): { x: number; y: number } {
+  const x = Math.round(((node.floor - 0.5) / 6) * SVG_WIDTH);
+  let y = SVG_HEIGHT / 2;
+  if (node.laneCount === 2) {
+    y = node.lane === 0 ? 132 : 308;
+  } else if (node.laneCount === 3) {
+    y = node.lane === 0 ? 82 : node.lane === 1 ? 220 : 358;
+  }
+  return { x, y };
+}
 
 export function NodeMapScreen({
-  nodes,
-  currentNodeIndex,
+  stageMap,
+  currentNodeId,
   clearedNodeIds,
+  totalFloorsCleared,
   runPlayer,
   meta,
   runVictory,
@@ -83,6 +91,21 @@ export function NodeMapScreen({
   const effectiveMecha = getEffectivePlayerMecha(runPlayer, meta);
   const effectiveMaxSp = getEffectivePlayerMaxSp(runPlayer, meta);
   const maxWill = combatConfig.will.max + runPlayer.maxWillBonus;
+
+  const totalCampaignFloors =
+    combatConfig.campaign.totalStages * combatConfig.campaign.floorsPerStage;
+  const clearedSet = new Set(clearedNodeIds);
+  const selectableIds = runVictory
+    ? new Set<string>()
+    : getSelectableNodeIds(stageMap, currentNodeId, clearedNodeIds);
+
+  const currentFloorReached = currentNodeId
+    ? (stageMap.nodesById[currentNodeId]?.floor ?? 0)
+    : 0;
+
+  const selectableNodes = Array.from(selectableIds)
+    .map((id) => stageMap.nodesById[id])
+    .filter((n): n is BranchingMapNode => Boolean(n));
 
   return (
     <div
@@ -108,11 +131,18 @@ export function NodeMapScreen({
                 )}
               </span>
               <div>
-                <p className="font-orbitron text-[10px] font-bold tracking-[0.24em] text-[#00f0ff] uppercase">
-                  Tactical Radar Route · {clearedNodeIds.length} / {nodes.length}{' '}
-                  Cleared
-                </p>
-                <h1 className="font-orbitron text-xl font-black text-slate-50">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    data-testid="stage-indicator"
+                    className="font-orbitron rounded border border-[#ffb800]/65 bg-[#ffb800]/15 px-2.5 py-0.5 text-[11px] font-black tracking-[0.2em] text-[#ffb800] uppercase"
+                  >
+                    STAGE {stageMap.stage}/3
+                  </span>
+                  <span className="font-orbitron text-[10px] font-bold tracking-[0.2em] text-[#00f0ff] uppercase">
+                    FLOOR {totalFloorsCleared} / {totalCampaignFloors} CLEARED
+                  </span>
+                </div>
+                <h1 className="font-orbitron mt-0.5 text-lg font-black text-slate-50 sm:text-xl">
                   {unitDef?.mecha.name}{' '}
                   <span className="font-sans text-sm font-medium text-slate-400">
                     ({unitDef?.pilot.name})
@@ -178,10 +208,10 @@ export function NodeMapScreen({
               data-testid="run-victory-banner"
             >
               <h2 className="font-orbitron text-2xl font-extrabold text-emerald-300">
-                🏆 OPERATION COMPLETE — ปราบบอสใหญ่สำเร็จ!
+                🏆 OPERATION COMPLETE — เคลียร์ครบทั้ง 3 Stages สำเร็จ!
               </h2>
               <p className="mt-2 text-sm text-emerald-100/80">
-                คุณนำ {unitDef?.mecha.name} ฝ่าฟันครบทั้ง 7 ด่านเรียบร้อยแล้ว
+                คุณนำ {unitDef?.mecha.name} โค่นบอสใหญ่ Overlord Dreadnought เรียบร้อยแล้ว
               </p>
               <button
                 type="button"
@@ -199,7 +229,7 @@ export function NodeMapScreen({
             />
           </div>
 
-          {/* Tactical Radar Command Map with Rotating Sweep & Flowing Energy Conduits */}
+          {/* Procedural 6-Floor Branching Tactical Radar Map */}
           <section
             className="hud-panel radar-bg relative mb-7 overflow-hidden p-5 backdrop-blur-md"
             data-testid="node-map-radar"
@@ -209,300 +239,268 @@ export function NodeMapScreen({
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
             >
-              <div className="h-[380px] w-[380px] rounded-full border border-[#00f0ff]/18" />
-              <div className="absolute h-[250px] w-[250px] rounded-full border border-[#00f0ff]/22" />
-              <div className="absolute h-[120px] w-[120px] rounded-full border border-dashed border-[#00f0ff]/28" />
-              {/* Horizontal & Vertical Radar Crosshairs */}
-              <div className="absolute inset-x-0 h-px bg-[#00f0ff]/12" />
-              <div className="absolute inset-y-0 w-px bg-[#00f0ff]/12" />
-
-              {/* Rotating Conic Radar Sweep */}
+              <div className="h-[440px] w-[440px] rounded-full border border-[#00f0ff]/16" />
+              <div className="absolute h-[290px] w-[290px] rounded-full border border-[#00f0ff]/20" />
+              <div className="absolute h-[140px] w-[140px] rounded-full border border-dashed border-[#00f0ff]/25" />
               <div
-                className="animate-radar-sweep absolute h-[420px] w-[420px] rounded-full"
+                className="animate-radar-sweep absolute h-[480px] w-[480px] rounded-full"
                 style={{
                   background:
-                    'conic-gradient(from 0deg, rgba(0,240,255,0.28) 0deg, rgba(0,240,255,0.08) 38deg, transparent 82deg, transparent 360deg)',
+                    'conic-gradient(from 0deg, rgba(0,240,255,0.22) 0deg, rgba(0,240,255,0.06) 36deg, transparent 80deg, transparent 360deg)',
                 }}
                 data-testid="radar-sweep-beam"
               />
             </div>
 
-            {/* Radar Top Telemetry Header */}
-            <div className="relative z-10 mb-2 flex flex-wrap items-center justify-between gap-2">
+            {/* Map Title Bar */}
+            <div className="relative z-10 mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="font-orbitron text-sm font-extrabold tracking-[0.18em] text-[#00f0ff] uppercase">
-                  📡 TACTICAL SECTOR RADAR · 7-NODE ROUTE
+                  📡 {stageMap.stageTitle}
                 </h2>
                 <p className="text-xs text-slate-400">
-                  HP, EN และ SP ส่งต่อข้ามด่านอัตโนมัติ (ค่า Will รีเซ็ตเป็น{' '}
-                  {combatConfig.will.initial} ทุกครั้งที่เริ่มฉากต่อสู้)
+                  เลือกเส้นทางที่กรอบเรืองแสงกระพริบในชั้นถัดไป (HP, EN, SP ส่งต่อข้ามด่าน · Will รีเซ็ตเป็น{' '}
+                  {combatConfig.will.initial})
                 </p>
               </div>
-              <span className="font-sci-num rounded border border-[#00f0ff]/40 bg-[#080c14]/85 px-2.5 py-1 text-[11px] font-bold text-[#00f0ff]">
-                SECTOR SCAN: ACTIVE
+              <span
+                className="font-sci-num rounded border border-[#00f0ff]/40 bg-[#080c14]/85 px-2.5 py-1 text-[11px] font-bold text-[#00f0ff]"
+                data-testid="map-seed-badge"
+              >
+                SEED #{stageMap.seed}
               </span>
             </div>
 
-            {/* Interactive SVG Energy Route Graph */}
-            <div className="relative z-10 mt-2 w-full overflow-x-auto">
-              <svg
-                viewBox="0 0 700 190"
-                className="h-44 w-full min-w-[560px]"
-                data-testid="node-map-energy-links"
-              >
-                <defs>
-                  <filter id="neonCyanGlow">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
-                    <feMerge>
-                      <feMergeNode in="blur" />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
-                  <linearGradient id="activeEnergyGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#00f0ff" />
-                    <stop offset="50%" stopColor="#ffb800" />
-                    <stop offset="100%" stopColor="#00f0ff" />
-                  </linearGradient>
-                </defs>
+            {/* Floor Column Labels */}
+            <div className="relative z-10 overflow-x-auto pb-2">
+              <div className="min-w-[820px]">
+                <div className="font-orbitron mb-2 grid grid-cols-6 text-center text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+                  <div>FLOOR 1 · ENTRY</div>
+                  <div>FLOOR 2</div>
+                  <div>FLOOR 3</div>
+                  <div>FLOOR 4</div>
+                  <div className="text-emerald-300">FLOOR 5 · SUPPLY</div>
+                  <div className="text-[#ff2a55]">FLOOR 6 · BOSS</div>
+                </div>
 
-                {/* Connecting Energy Conduits Between Consecutive Nodes */}
-                {nodes.slice(0, -1).map((node, idx) => {
-                  const from = RADAR_NODE_COORDS[idx] ?? { x: 60 + idx * 95, y: 95 };
-                  const to = RADAR_NODE_COORDS[idx + 1] ?? {
-                    x: 155 + idx * 95,
-                    y: 95,
-                  };
-                  const isFromCleared = clearedNodeIds.includes(node.id);
-                  const isToCleared = clearedNodeIds.includes(nodes[idx + 1].id);
-                  const isActiveFlow =
-                    !runVictory &&
-                    (idx === currentNodeIndex || idx === currentNodeIndex - 1);
+                {/* Branching SVG Links + Interactive Nodes Container */}
+                <div className="relative h-[440px] w-full rounded-xl border border-[#00f0ff]/20 bg-[#060a13]/75">
+                  <svg
+                    viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+                    preserveAspectRatio="none"
+                    className="pointer-events-none absolute inset-0 h-full w-full"
+                    data-testid="branch-map-svg"
+                  >
+                    <defs>
+                      <filter id="branchGlow">
+                        <feGaussianBlur stdDeviation="3.5" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+                      <linearGradient
+                        id="branchEnergyGrad"
+                        x1="0"
+                        y1="0"
+                        x2="1"
+                        y2="0"
+                      >
+                        <stop offset="0%" stopColor="#00f0ff" />
+                        <stop offset="50%" stopColor="#ffb800" />
+                        <stop offset="100%" stopColor="#00f0ff" />
+                      </linearGradient>
+                    </defs>
 
-                  return (
-                    <g key={`link-${node.id}`}>
-                      {/* Base Track Line */}
-                      <line
-                        x1={from.x}
-                        y1={from.y}
-                        x2={to.x}
-                        y2={to.y}
-                        stroke={
-                          isFromCleared && isToCleared
-                            ? '#10b981'
-                            : isActiveFlow
-                              ? '#00f0ff'
-                              : '#334155'
-                        }
-                        strokeWidth={isActiveFlow ? 3 : 2}
-                        strokeOpacity={
-                          isFromCleared && isToCleared
-                            ? 0.85
-                            : isActiveFlow
-                              ? 0.45
-                              : 0.55
-                        }
-                        strokeDasharray={
-                          isFromCleared && isToCleared ? undefined : '4 5'
-                        }
-                      />
+                    {Object.values(stageMap.nodesById).flatMap((fromNode) => {
+                      const from = getNodeCoords(fromNode);
+                      return fromNode.nextNodeIds.map((toId) => {
+                        const toNode = stageMap.nodesById[toId];
+                        if (!toNode) return null;
+                        const to = getNodeCoords(toNode);
+                        const pathD = `M ${from.x} ${from.y} C ${from.x + 85} ${from.y}, ${to.x - 85} ${to.y}, ${to.x} ${to.y}`;
 
-                      {/* Animated Flowing Energy Stream from Current Node -> Next Node */}
-                      {isActiveFlow && (
-                        <>
-                          <line
-                            x1={from.x}
-                            y1={from.y}
-                            x2={to.x}
-                            y2={to.y}
-                            stroke="url(#activeEnergyGrad)"
-                            strokeWidth="3.5"
-                            strokeLinecap="round"
-                            filter="url(#neonCyanGlow)"
-                            className="animate-energy-flow"
-                            data-testid={`energy-flow-link-${idx + 1}`}
-                          />
-                          <circle r="4.2" fill="#00f0ff" filter="url(#neonCyanGlow)">
-                            <animateMotion
-                              dur="1.45s"
-                              repeatCount="indefinite"
-                              path={`M ${from.x} ${from.y} L ${to.x} ${to.y}`}
+                        const isActiveChoice =
+                          fromNode.id === currentNodeId &&
+                          selectableIds.has(toId);
+                        const isClearedEdge =
+                          clearedSet.has(fromNode.id) &&
+                          (clearedSet.has(toId) || toId === currentNodeId);
+                        const isPassedUnchosen =
+                          fromNode.floor <= currentFloorReached &&
+                          !isClearedEdge &&
+                          !isActiveChoice;
+
+                        return (
+                          <g key={`edge-${fromNode.id}-${toId}`}>
+                            <path
+                              d={pathD}
+                              fill="none"
+                              stroke={
+                                isClearedEdge
+                                  ? '#10b981'
+                                  : isActiveChoice
+                                    ? '#00f0ff'
+                                    : '#334155'
+                              }
+                              strokeWidth={
+                                isActiveChoice ? 3.5 : isClearedEdge ? 3 : 2
+                              }
+                              strokeOpacity={
+                                isPassedUnchosen
+                                  ? 0.2
+                                  : isClearedEdge
+                                    ? 0.85
+                                    : isActiveChoice
+                                      ? 0.55
+                                      : 0.45
+                              }
+                              strokeDasharray={
+                                isClearedEdge ? undefined : '6 6'
+                              }
                             />
-                          </circle>
-                        </>
-                      )}
-                    </g>
-                  );
-                })}
 
-                {/* 7 Interactive Radar Waypoint Beacons */}
-                {nodes.map((node, idx) => {
-                  const pt = RADAR_NODE_COORDS[idx] ?? { x: 60 + idx * 95, y: 95 };
-                  const isCleared = clearedNodeIds.includes(node.id);
-                  const isCurrent = !runVictory && idx === currentNodeIndex;
-                  const isBoss = node.type === 'boss_battle';
+                            {isActiveChoice && (
+                              <>
+                                <path
+                                  d={pathD}
+                                  fill="none"
+                                  stroke="url(#branchEnergyGrad)"
+                                  strokeWidth="4"
+                                  filter="url(#branchGlow)"
+                                  className="animate-energy-flow"
+                                />
+                                <circle
+                                  r="5"
+                                  fill="#00f0ff"
+                                  filter="url(#branchGlow)"
+                                >
+                                  <animateMotion
+                                    dur="1.4s"
+                                    repeatCount="indefinite"
+                                    path={pathD}
+                                  />
+                                </circle>
+                              </>
+                            )}
+                          </g>
+                        );
+                      });
+                    })}
+                  </svg>
 
-                  const strokeColor = isCurrent
-                    ? '#00f0ff'
-                    : isCleared
-                      ? '#10b981'
-                      : isBoss
-                        ? '#ff2a55'
-                        : '#475569';
+                  {/* Node Buttons Positioned Over SVG Coordinates */}
+                  {Object.values(stageMap.nodesById).map((node) => {
+                    const { x, y } = getNodeCoords(node);
+                    const isCleared = clearedSet.has(node.id);
+                    const isCurrent = node.id === currentNodeId;
+                    const isSelectable = selectableIds.has(node.id);
+                    const isBoss = node.type === 'boss_battle';
+                    const isPassedUnchosen =
+                      node.floor <= currentFloorReached && !isCleared;
 
-                  return (
-                    <g
-                      key={`beacon-${node.id}`}
-                      onClick={() => {
-                        if (isCurrent) onEnterNode(node);
-                      }}
-                      className={isCurrent ? 'cursor-pointer' : ''}
-                    >
-                      {isCurrent && (
-                        <circle
-                          cx={pt.x}
-                          cy={pt.y}
-                          r="24"
-                          fill="rgba(0, 240, 255, 0.14)"
-                          stroke="#00f0ff"
-                          strokeWidth="1.5"
-                          strokeDasharray="4 4"
-                        />
-                      )}
-                      <circle
-                        cx={pt.x}
-                        cy={pt.y}
-                        r={isBoss ? 19 : 16}
-                        fill={
-                          isCurrent
-                            ? '#0b2239'
+                    return (
+                      <button
+                        key={node.id}
+                        type="button"
+                        disabled={!isSelectable}
+                        data-testid={`branch-node-${node.id}`}
+                        data-selectable={isSelectable ? 'true' : 'false'}
+                        data-cleared={isCleared ? 'true' : 'false'}
+                        data-floor={node.floor}
+                        onClick={() => isSelectable && onEnterNode(node)}
+                        style={{
+                          left: `${(x / SVG_WIDTH) * 100}%`,
+                          top: `${(y / SVG_HEIGHT) * 100}%`,
+                        }}
+                        className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-xl border px-3 py-2 text-left transition-all ${
+                          isBoss ? 'w-44' : 'w-36'
+                        } ${
+                          isSelectable
+                            ? `animate-tile-pulse-blue cursor-pointer bg-[#0b1930]/95 shadow-[0_0_24px_rgba(0,240,255,0.35)] hover:scale-105 ${getNodeAccent(
+                                node.type
+                              )}`
                             : isCleared
-                              ? '#062c22'
-                              : '#0b1220'
-                        }
-                        stroke={strokeColor}
-                        strokeWidth={isCurrent ? 2.6 : 1.8}
-                        filter={isCurrent ? 'url(#neonCyanGlow)' : undefined}
-                      />
-                      <text
-                        x={pt.x}
-                        y={pt.y + 5}
-                        textAnchor="middle"
-                        fontSize={isBoss ? '14' : '12'}
+                              ? 'cursor-default border-emerald-400/70 bg-emerald-950/60 text-emerald-200'
+                              : isPassedUnchosen
+                                ? 'cursor-default border-slate-800 bg-[#080c14]/65 opacity-25'
+                                : 'cursor-not-allowed border-slate-700/70 bg-[#0b1324]/75 opacity-55'
+                        }`}
                       >
-                        {isCleared ? '✓' : getNodeIcon(node.type)}
-                      </text>
-                      <text
-                        x={pt.x}
-                        y={pt.y + 34}
-                        textAnchor="middle"
-                        fill={
-                          isCurrent
-                            ? '#00f0ff'
-                            : isCleared
-                              ? '#34d399'
-                              : isBoss
-                                ? '#ff2a55'
-                                : '#94a3b8'
-                        }
-                        fontSize="10"
-                        fontWeight="700"
-                        fontFamily="Orbitron, Chakra Petch, sans-serif"
-                      >
-                        N{node.nodeNumber}
-                      </text>
-                    </g>
-                  );
-                })}
-              </svg>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-orbitron text-[9px] font-bold tracking-wider uppercase opacity-80">
+                            F{node.floor} ·{' '}
+                            {isCleared
+                              ? 'DONE'
+                              : isCurrent
+                                ? 'HERE'
+                                : isSelectable
+                                  ? 'READY'
+                                  : isBoss
+                                    ? 'BOSS'
+                                    : 'LOCKED'}
+                          </span>
+                          <span className="text-base leading-none">
+                            {isCleared ? '✓' : getNodeIcon(node.type)}
+                          </span>
+                        </div>
+                        <div className="mt-1 truncate text-xs font-bold text-slate-100">
+                          {node.title}
+                        </div>
+                        <div className="truncate text-[10px] opacity-80">
+                          {node.typeLabel}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </section>
 
-          {/* 7-Node Detailed Progression Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {nodes.map((node, index) => {
-              const isCleared = clearedNodeIds.includes(node.id);
-              const isCurrent = !runVictory && index === currentNodeIndex;
-
-              return (
-                <div
-                  key={node.id}
-                  data-testid={`map-node-${node.nodeNumber}`}
-                  data-status={
-                    isCleared ? 'cleared' : isCurrent ? 'current' : 'locked'
-                  }
-                  className={`relative flex flex-col justify-between rounded-xl border p-5 backdrop-blur-md transition ${
-                    isCurrent
-                      ? `hud-panel ring-2 ring-[#00f0ff]/85 shadow-[0_0_24px_rgba(0,240,255,0.2)] ${getNodeAccent(
-                          node.type
-                        )}`
-                      : isCleared
-                        ? 'border-emerald-500/40 bg-emerald-950/20 opacity-85'
-                        : 'border-slate-800 bg-[#0b1324]/55 opacity-55'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-orbitron text-xs font-bold tracking-wider text-slate-400 uppercase">
-                        NODE 0{node.nodeNumber}
-                      </span>
-                      <span
-                        className={`font-orbitron rounded px-2 py-0.5 text-[9px] font-bold uppercase ${
-                          isCleared
-                            ? 'bg-emerald-500/20 text-emerald-300'
-                            : isCurrent
-                              ? 'bg-[#00f0ff]/20 text-[#00f0ff]'
-                              : 'bg-slate-800 text-slate-500'
-                        }`}
-                      >
-                        {isCleared
-                          ? '✓ Cleared'
-                          : isCurrent
-                            ? '▶ Active'
-                            : '🔒 Locked'}
-                      </span>
+          {/* Selectable Next-Floor Mission Cards for Quick Briefing & Accessibility */}
+          {!runVictory && selectableNodes.length > 0 && (
+            <div data-testid="selectable-nodes-list">
+              <h3 className="font-orbitron mb-3 text-xs font-bold tracking-[0.18em] text-[#00f0ff] uppercase">
+                ▶ เส้นทางที่เลือกได้ในชั้นถัดไป (FLOOR {selectableNodes[0].floor})
+              </h3>
+              <div className="grid gap-4 md:grid-cols-3">
+                {selectableNodes.map((node) => (
+                  <div
+                    key={node.id}
+                    data-testid={`selectable-card-${node.id}`}
+                    className={`hud-panel flex flex-col justify-between p-4 backdrop-blur-md ${getNodeAccent(
+                      node.type
+                    )}`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-orbitron text-[10px] font-bold tracking-widest uppercase">
+                          STAGE {stageMap.stage}/3 · FLOOR {node.floor}
+                        </span>
+                        <span className="text-xl">{getNodeIcon(node.type)}</span>
+                      </div>
+                      <h4 className="mt-2 text-sm font-bold text-white">
+                        {node.title}
+                      </h4>
+                      <p className="mt-1 text-xs text-slate-300">
+                        {node.description}
+                      </p>
                     </div>
 
-                    <div className="mt-3 flex items-center gap-2.5">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-[#080c14]/85 text-xl">
-                        {getNodeIcon(node.type)}
-                      </span>
-                      <div>
-                        <div className="text-sm font-bold text-slate-100">
-                          {node.title}
-                        </div>
-                        <div className="text-xs font-semibold opacity-90">
-                          {node.typeLabel}
-                        </div>
-                      </div>
-                    </div>
-
-                    <p className="mt-2.5 text-xs leading-relaxed text-slate-400">
-                      {node.description}
-                    </p>
+                    <button
+                      type="button"
+                      data-testid={`enter-node-${node.id}`}
+                      onClick={() => onEnterNode(node)}
+                      className="hud-btn font-orbitron mt-4 w-full cursor-pointer border border-[#00f0ff]/80 bg-gradient-to-r from-cyan-600 to-blue-600 py-2 text-xs font-extrabold tracking-wider text-white transition hover:brightness-115"
+                    >
+                      DEPLOY TO {node.id.toUpperCase()} →
+                    </button>
                   </div>
-
-                  <div className="mt-4">
-                    {isCurrent ? (
-                      <button
-                        type="button"
-                        data-testid={`enter-node-${node.nodeNumber}`}
-                        onClick={() => onEnterNode(node)}
-                        className="hud-btn font-orbitron w-full cursor-pointer border border-[#00f0ff]/75 bg-gradient-to-r from-cyan-600 to-blue-600 py-2.5 text-xs font-extrabold tracking-wider text-white shadow-[0_0_16px_rgba(0,240,255,0.3)] transition hover:brightness-115"
-                      >
-                        DEPLOY NODE {node.nodeNumber} →
-                      </button>
-                    ) : (
-                      <div className="rounded-lg border border-slate-800/80 bg-[#080c14]/60 py-2 text-center text-xs text-slate-500">
-                        {isCleared
-                          ? 'ผ่านด่านนี้แล้ว'
-                          : 'ปลดล็อกเมื่อผ่านด่านก่อนหน้า'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

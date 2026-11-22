@@ -100,8 +100,13 @@ export function WeaponMenuPanel({
               } disabled:cursor-not-allowed disabled:opacity-45`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-slate-100">
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-100">
                   {weapon.name}
+                  {(weapon.level ?? 1) > 1 && (
+                    <span className="font-sci-num rounded border border-[#ffb800]/60 bg-[#ffb800]/20 px-1.5 py-0.5 text-[10px] font-extrabold text-[#ffb800]">
+                      Lv.{weapon.level}
+                    </span>
+                  )}
                 </span>
                 <span
                   className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${

@@ -5,6 +5,10 @@ import {
   getUnitWeapons,
 } from '../logic/dataLoader';
 import {
+  createRandomSeed,
+  getDailyChallengeSeed,
+} from '../logic/mapGenerator';
+import {
   getMetaBonuses,
   getThreatLevelConfig,
   threatLevels,
@@ -21,7 +25,8 @@ interface HangarScreenProps {
   onStartRun: (
     unitDefId: string,
     startingAllyIds: string[],
-    threatLevel: number
+    threatLevel: number,
+    seed?: number
   ) => void;
   onPurchaseMetaUpgrade: (upgradeId: string) => void;
   onBackToTitle: () => void;
@@ -43,6 +48,7 @@ export function HangarScreen({
   const [selectedThreatLevel, setSelectedThreatLevel] = useState<number>(
     meta.maxUnlockedThreatLevel
   );
+  const [useDailySeed, setUseDailySeed] = useState(false);
   const [showMetaModal, setShowMetaModal] = useState(false);
   const [showCompendium, setShowCompendium] = useState(false);
 
@@ -194,7 +200,7 @@ export function HangarScreen({
             PROJECT <span className="text-[#00f0ff]">AEGIS-BREAK</span>
           </h1>
           <p className="mt-1.5 text-xs text-slate-400 sm:text-sm">
-            เลือกหุ่นยนต์เริ่มต้น 1 เครื่องจากแท่นปล่อยตัว เพื่อออกปฏิบัติการฝ่าแนวรบ 7 ด่าน
+            เลือกหุ่นยนต์เริ่มต้น 1 เครื่องจากแท่นปล่อยตัว เพื่อลุยแผนที่สุ่มแยกสาย 3 Stages (18 ด่าน)
             และโค่นบอสใหญ่ Overlord Dreadnought
           </p>
         </header>
@@ -642,8 +648,24 @@ export function HangarScreen({
           </p>
         </div>
 
-        {/* Start Run CTA */}
-        <div className="mt-8 flex justify-center">
+        {/* Start Run CTA + Daily Seed Toggle */}
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-[#00f0ff]/30 bg-[#0b1324]/80 px-4 py-1.5 text-xs text-slate-200 backdrop-blur-md">
+            <input
+              type="checkbox"
+              checked={useDailySeed}
+              onChange={(e) => setUseDailySeed(e.target.checked)}
+              data-testid="daily-seed-toggle"
+              className="accent-[#00f0ff]"
+            />
+            <span className="font-orbitron text-[11px] font-bold text-[#00f0ff]">
+              📅 DAILY CHALLENGE SEED
+            </span>
+            <span className="font-sci-num text-[11px] text-slate-400">
+              (#{getDailyChallengeSeed()})
+            </span>
+          </label>
+
           <button
             type="button"
             data-testid="start-run-btn"
@@ -651,7 +673,8 @@ export function HangarScreen({
               onStartRun(
                 selectedId,
                 deployMedic ? ['ally_aegis_medic'] : [],
-                selectedThreatLevel
+                selectedThreatLevel,
+                useDailySeed ? getDailyChallengeSeed() : createRandomSeed()
               )
             }
             className="hud-btn font-orbitron cursor-pointer border border-[#00f0ff]/80 bg-gradient-to-r from-cyan-600 via-[#00b8d4] to-blue-600 px-10 py-3.5 text-sm font-black tracking-wider text-white shadow-[0_0_28px_rgba(0,240,255,0.4)] transition hover:brightness-115 sm:text-base"
